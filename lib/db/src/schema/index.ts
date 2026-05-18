@@ -11,3 +11,5 @@ export * from "./app_users";
 export * from "./user_sessions";
 export * from "./user_invites";
 export * from "./feature_flags";
+export * from "./conversations";
+export * from "./messages";

@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { AppAuthProvider } from "@/contexts/AppAuthContext";
+import { ChatCryptoProvider } from "@/contexts/ChatCryptoContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +30,7 @@ function RootLayoutNav() {
       <Stack.Screen name="send"    options={{ presentation: "modal",  animation: "slide_from_bottom", headerShown: false }} />
       <Stack.Screen name="receive" options={{ presentation: "modal",  animation: "slide_from_bottom", headerShown: false }} />
       <Stack.Screen name="staking" options={{ presentation: "card",   animation: "slide_from_right",  headerShown: false }} />
+      <Stack.Screen name="chat/[id]" options={{ presentation: "card", animation: "slide_from_right",  headerShown: false }} />
     </Stack>
   );
 }
@@ -54,13 +56,15 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppAuthProvider>
-            <WalletProvider>
-              <GestureHandlerRootView>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </WalletProvider>
+            <ChatCryptoProvider>
+              <WalletProvider>
+                <GestureHandlerRootView>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </WalletProvider>
+            </ChatCryptoProvider>
           </AppAuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>

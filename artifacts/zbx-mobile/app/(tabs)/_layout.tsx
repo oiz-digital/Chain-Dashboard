@@ -27,6 +27,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "wallet.pass", selected: "wallet.pass.fill" }} />
         <Label>Wallet</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="messages">
+        <Icon sf={{ default: "message", selected: "message.fill" }} />
+        <Label>Messages</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person.circle", selected: "person.circle.fill" }} />
         <Label>Account</Label>
@@ -81,6 +85,10 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="wallet"
         options={{ title: "Wallet", tabBarIcon: ({ color, size }) => <Feather name="credit-card" size={size} color={color} /> }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{ title: "Messages", tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="profile"

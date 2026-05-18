@@ -18,6 +18,7 @@ import authRouter from "./auth";
 import adminAppUsersRouter from "./admin-app-users";
 import adminFeatureFlagsRouter from "./admin-feature-flags";
 import adminInvitesRouter from "./admin-invites";
+import chatRouter from "./chat";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(authRouter);
 router.use(adminAppUsersRouter);
 router.use(adminFeatureFlagsRouter);
 router.use(adminInvitesRouter);
+router.use(chatRouter);
 
 export default router;
