@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useAppAuth } from "@/contexts/AppAuthContext";
 
@@ -21,7 +21,13 @@ export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { login, signup } = useAppAuth();
-  const [tab, setTab] = useState<Tab>("login");
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [tab, setTab] = useState<Tab>(params.mode === "signup" ? "signup" : "login");
+
+  useEffect(() => {
+    if (params.mode === "signup") setTab("signup");
+    else if (params.mode === "login") setTab("login");
+  }, [params.mode]);
 
   const [email,       setEmail]       = useState("");
   const [password,    setPassword]    = useState("");
@@ -140,6 +146,24 @@ export default function AuthScreen() {
             {tab === "login" ? "Sign Up" : "Sign In"}
           </Text>
         </Text>
+
+        {/* Guest continue */}
+        <View style={s.dividerRow}>
+          <View style={[s.divider, { backgroundColor: BORDER }]} />
+          <Text style={[s.dividerText, { color: MUTED }]}>or</Text>
+          <View style={[s.divider, { backgroundColor: BORDER }]} />
+        </View>
+        <TouchableOpacity
+          style={[s.guestBtn, { borderColor: BORDER }]}
+          activeOpacity={0.75}
+          onPress={() => router.replace("/(tabs)")}
+        >
+          <Feather name="eye" size={15} color={MUTED} style={{ marginRight: 8 }} />
+          <Text style={[s.guestBtnText, { color: MUTED }]}>Continue as Guest</Text>
+        </TouchableOpacity>
+        <Text style={[s.guestNote, { color: MUTED }]}>
+          Browse freely — create an account anytime to claim rewards
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -160,7 +184,7 @@ function Field({ label, fg, muted, accent, border, rightAction, ...inputProps }:
         borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
         backgroundColor: "#0d0d16",
       }]}>
-        <Feather name={inputProps.icon} size={15} color={focused ? accent : muted} style={{ marginRight: 10 }} />
+        <Feather name={inputProps.icon as any} size={15} color={focused ? accent : muted} style={{ marginRight: 10 }} />
         <TextInput
           style={{ flex: 1, color: fg, fontSize: 15 }}
           placeholderTextColor={muted}
@@ -189,5 +213,11 @@ const s = StyleSheet.create({
   card:     { borderWidth: 1, borderRadius: 20, padding: 20, marginBottom: 20 },
   btn:      { paddingVertical: 15, borderRadius: 14, alignItems: "center", marginTop: 4 },
   btnText:  { fontSize: 15, fontWeight: "700", color: "#000" },
-  footer:   { textAlign: "center", fontSize: 13 },
+  footer:      { textAlign: "center", fontSize: 13, marginBottom: 4 },
+  dividerRow:  { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 },
+  divider:     { flex: 1, height: 1 },
+  dividerText: { fontSize: 12 },
+  guestBtn:    { flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 14, paddingVertical: 13, marginBottom: 10 },
+  guestBtnText:{ fontSize: 14, fontWeight: "600" },
+  guestNote:   { textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 20 },
 });
