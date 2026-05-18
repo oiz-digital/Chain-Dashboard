@@ -5,3 +5,5 @@ export * from "./admin_users";
 export * from "./system_settings";
 export * from "./liquidity_pools";
 export * from "./swap_transactions";
+export * from "./governance";
+export * from "./ibc_channels";

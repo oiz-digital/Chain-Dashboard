@@ -3,7 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Box, ArrowRightLeft, Users, Wallet, Coins, Landmark,
   Menu, X, Code2, ClipboardList, Wrench, Bot, MessageSquare,
-  Zap, TrendingUp, Activity, ChevronRight, Cpu, Repeat2, Droplets, Shield
+  Zap, TrendingUp, Activity, ChevronRight, Cpu, Repeat2, Droplets, Shield,
+  Vote, BarChart3, Cable, Globe, Trophy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetChainStats } from "@workspace/api-client-react";
@@ -24,9 +25,19 @@ const NAV_SECTIONS = [
   {
     label: "DeFi",
     items: [
-      { href: "/swap", label: "Swap", icon: Repeat2 },
-      { href: "/pools", label: "Liquidity Pools", icon: Droplets },
-      { href: "/staking", label: "Staking", icon: Shield },
+      { href: "/swap",       label: "Swap",            icon: Repeat2 },
+      { href: "/pools",      label: "Liquidity Pools", icon: Droplets },
+      { href: "/staking",    label: "Staking",         icon: Shield },
+      { href: "/bridge",     label: "Bridge",          icon: Cable },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { href: "/governance", label: "Proposals",       icon: Vote },
+      { href: "/analytics",  label: "Analytics",       icon: BarChart3 },
+      { href: "/ibc",        label: "IBC Channels",    icon: Globe },
+      { href: "/leaderboard",label: "Leaderboard",     icon: Trophy },
     ],
   },
   {

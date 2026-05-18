@@ -755,6 +755,94 @@ export interface StakingValidatorList {
   total: number;
 }
 
+export interface GovernanceProposal {
+  id: number;
+  title: string;
+  description: string;
+  proposalType: string;
+  status: string;
+  proposerAddress: string;
+  submitTime: string;
+  depositEndTime: string;
+  votingStartTime?: string;
+  votingEndTime?: string;
+  totalDeposit: string;
+  yesVotes: string;
+  noVotes: string;
+  abstainVotes: string;
+  noWithVetoVotes: string;
+  totalVotingPower: string;
+  quorumReached: boolean;
+  contentSummary?: string;
+}
+
+export interface GovernanceProposalList {
+  proposals: GovernanceProposal[];
+  total: number;
+}
+
+export interface GovernanceParams {
+  minDepositAmount: string;
+  maxDepositPeriodDays: number;
+  votingPeriodDays: number;
+  quorum: string;
+  threshold: string;
+  vetoThreshold: string;
+}
+
+export interface PricePoint {
+  date: string;
+  price: number;
+  volume: number;
+  tvl?: number;
+}
+
+export interface AnalyticsOverview {
+  priceHistory: PricePoint[];
+  tvlHistory: PricePoint[];
+  volumeHistory: PricePoint[];
+  currentPrice: number;
+  priceChange24h: number;
+  priceChange7d?: number;
+  marketCap: number;
+  fullyDilutedValuation: number;
+}
+
+export interface IbcChannel {
+  id: number;
+  channelId: string;
+  portId: string;
+  counterpartyChain: string;
+  counterpartyChannelId: string;
+  counterpartyPortId: string;
+  status: string;
+  ordering: string;
+  version: string;
+  packetsSent: number;
+  packetsReceived: number;
+  totalValueUsd: string;
+}
+
+export interface IbcChannelList {
+  channels: IbcChannel[];
+  total: number;
+}
+
+export interface LeaderboardAccount {
+  rank: number;
+  address: string;
+  label?: string;
+  balance: string;
+  stakedAmount: string;
+  txCount: number;
+  percentOfSupply: string;
+}
+
+export interface ListLeaderboardResponse {
+  accounts: LeaderboardAccount[];
+  total: number;
+}
+
 export type ListBlocksParams = {
 page?: number;
 limit?: number;
@@ -796,6 +884,32 @@ poolId?: number;
 
 export type GetStakingValidatorsParams = {
 page?: number;
+limit?: number;
+};
+
+export type ListGovernanceProposalsParams = {
+page?: number;
+limit?: number;
+status?: ListGovernanceProposalsStatus;
+};
+
+export type ListGovernanceProposalsStatus = typeof ListGovernanceProposalsStatus[keyof typeof ListGovernanceProposalsStatus];
+
+
+export const ListGovernanceProposalsStatus = {
+  all: 'all',
+  voting_period: 'voting_period',
+  passed: 'passed',
+  rejected: 'rejected',
+  deposit_period: 'deposit_period',
+  failed: 'failed',
+} as const;
+
+export type GetAnalyticsOverviewParams = {
+days?: number;
+};
+
+export type ListLeaderboardAccountsParams = {
 limit?: number;
 };
 

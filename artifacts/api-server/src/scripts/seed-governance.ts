@@ -1,0 +1,120 @@
+import { db } from "@workspace/db";
+import { governanceProposalsTable, ibcChannelsTable } from "@workspace/db";
+
+async function seed() {
+  const now = new Date();
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000);
+
+  await db.insert(governanceProposalsTable).values([
+    {
+      title: "ZEP-009: Treasury Fund for Ecosystem Grants Q2 2026",
+      description: "Allocate 2,000,000 ZBX from community pool for developer grants in Q2 2026.",
+      proposalType: "community_pool_spend",
+      status: "passed",
+      proposerAddress: "zbx1val0x7a3f9e2c4b8d1a6f0e5c9b2d7",
+      submitTime: daysAgo(63),
+      depositEndTime: daysAgo(49),
+      votingStartTime: daysAgo(61),
+      votingEndTime: daysAgo(47),
+      totalDeposit: "100000",
+      yesVotes: "45100000",
+      noVotes: "2100000",
+      abstainVotes: "800000",
+      noWithVetoVotes: "140000",
+      totalVotingPower: "49440000",
+      quorumReached: true,
+      contentSummary: "Recipient: zbx1grants0000000000. Amount: 2,000,000 ZBX.",
+    },
+    {
+      title: "ZEP-010: Reduce Validator Commission Cap to 20%",
+      description: "Lower the maximum allowed validator commission rate from 30% to 20% to protect delegators.",
+      proposalType: "parameter_change",
+      status: "passed",
+      proposerAddress: "zbx1val0x9c4e7b2f5a8d3e1c6b0f9",
+      submitTime: daysAgo(47),
+      depositEndTime: daysAgo(33),
+      votingStartTime: daysAgo(45),
+      votingEndTime: daysAgo(31),
+      totalDeposit: "60000",
+      yesVotes: "38700000",
+      noVotes: "7200000",
+      abstainVotes: "1400000",
+      noWithVetoVotes: "200000",
+      totalVotingPower: "49440000",
+      quorumReached: true,
+      contentSummary: "max_commission: 0.30 → 0.20, effective at block 7,900,000.",
+    },
+    {
+      title: "ZEP-011: Expand AI Inference Precompile (0xCA)",
+      description: "Add 4 new large language model slots to the AI precompile, enabling on-chain inference for vision models.",
+      proposalType: "software_upgrade",
+      status: "passed",
+      proposerAddress: "zbx1val0x2b5f8d1e4c9a3f7e0b6d2c5",
+      submitTime: daysAgo(28),
+      depositEndTime: daysAgo(14),
+      votingStartTime: daysAgo(26),
+      votingEndTime: daysAgo(12),
+      totalDeposit: "80000",
+      yesVotes: "41200000",
+      noVotes: "1800000",
+      abstainVotes: "900000",
+      noWithVetoVotes: "120000",
+      totalVotingPower: "49440000",
+      quorumReached: true,
+      contentSummary: "Upgrade block height: 8,200,000. New model types: vision-7b, code-13b, multimodal-34b, audio-7b.",
+    },
+    {
+      title: "ZEP-012: Enable Dynamic Gas Pricing",
+      description: "Introduce EIP-1559 style base fee mechanism for ZBX chain to improve fee predictability and reduce spam.",
+      proposalType: "parameter_change",
+      status: "voting_period",
+      proposerAddress: "zbx1val0x7a3f9e2c4b8d1a6f0e5c9b2d7",
+      submitTime: daysAgo(8),
+      depositEndTime: daysAgo(0),
+      votingStartTime: daysAgo(6),
+      votingEndTime: new Date(now.getTime() + 8 * 86_400_000),
+      totalDeposit: "50000",
+      yesVotes: "28420000",
+      noVotes: "4180000",
+      abstainVotes: "2100000",
+      noWithVetoVotes: "380000",
+      totalVotingPower: "49440000",
+      quorumReached: true,
+      contentSummary: "Adjust base_fee_change_denominator to 8, max_fee_per_gas cap at 500 gwei.",
+    },
+    {
+      title: "ZEP-013: IBC Wasm Light Client Support",
+      description: "Enable Wasm-based light client verification for enhanced IBC interoperability with Cosmos ecosystem.",
+      proposalType: "software_upgrade",
+      status: "deposit_period",
+      proposerAddress: "zbx1val0x9c4e7b2f5a8d3e1c6b0f9",
+      submitTime: daysAgo(1),
+      depositEndTime: new Date(now.getTime() + 13 * 86_400_000),
+      votingStartTime: null,
+      votingEndTime: null,
+      totalDeposit: "8000",
+      yesVotes: "0",
+      noVotes: "0",
+      abstainVotes: "0",
+      noWithVetoVotes: "0",
+      totalVotingPower: "49440000",
+      quorumReached: false,
+      contentSummary: "Requires 10,000 ZBX deposit. Current: 8,000 ZBX.",
+    },
+  ]).onConflictDoNothing();
+
+  await db.insert(ibcChannelsTable).values([
+    { channelId: "channel-0", portId: "transfer", counterpartyChain: "Cosmos Hub",  counterpartyChannelId: "channel-391", counterpartyPortId: "transfer", status: "open", packetsSent: 48210, packetsReceived: 51890, totalValueUsd: "12400000" },
+    { channelId: "channel-1", portId: "transfer", counterpartyChain: "Osmosis",     counterpartyChannelId: "channel-9482", counterpartyPortId: "transfer", status: "open", packetsSent: 124500, packetsReceived: 119200, totalValueUsd: "8900000" },
+    { channelId: "channel-2", portId: "transfer", counterpartyChain: "Celestia",    counterpartyChannelId: "channel-71",  counterpartyPortId: "transfer", status: "open", packetsSent: 19800, packetsReceived: 21400, totalValueUsd: "4200000" },
+    { channelId: "channel-3", portId: "transfer", counterpartyChain: "Neutron",     counterpartyChannelId: "channel-44",  counterpartyPortId: "transfer", status: "open", packetsSent: 8940, packetsReceived: 9120, totalValueUsd: "1800000" },
+    { channelId: "channel-4", portId: "transfer", counterpartyChain: "Stride",      counterpartyChannelId: "channel-62",  counterpartyPortId: "transfer", status: "open", packetsSent: 62100, packetsReceived: 58400, totalValueUsd: "6300000" },
+    { channelId: "channel-5", portId: "transfer", counterpartyChain: "Axelar",      counterpartyChannelId: "channel-312", counterpartyPortId: "transfer", status: "open", packetsSent: 31200, packetsReceived: 28700, totalValueUsd: "3100000" },
+    { channelId: "channel-6", portId: "transfer", counterpartyChain: "Evmos",       counterpartyChannelId: "channel-83",  counterpartyPortId: "transfer", status: "closed", packetsSent: 4200, packetsReceived: 4198, totalValueUsd: "0" },
+  ]).onConflictDoNothing();
+
+  console.log("Governance + IBC seeded.");
+  process.exit(0);
+}
+
+seed().catch(e => { console.error(e); process.exit(1); });

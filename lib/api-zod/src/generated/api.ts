@@ -467,6 +467,167 @@ export const GetStakingValidatorsResponse = zod.object({
 
 
 /**
+ * @summary List governance proposals
+ */
+export const listGovernanceProposalsQueryPageDefault = 1;
+export const listGovernanceProposalsQueryLimitDefault = 20;
+export const listGovernanceProposalsQueryStatusDefault = `all`;
+
+export const ListGovernanceProposalsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listGovernanceProposalsQueryPageDefault),
+  "limit": zod.coerce.number().default(listGovernanceProposalsQueryLimitDefault),
+  "status": zod.enum(['all', 'voting_period', 'passed', 'rejected', 'deposit_period', 'failed']).default(listGovernanceProposalsQueryStatusDefault)
+})
+
+export const ListGovernanceProposalsResponse = zod.object({
+  "proposals": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "proposalType": zod.string(),
+  "status": zod.string(),
+  "proposerAddress": zod.string(),
+  "submitTime": zod.string(),
+  "depositEndTime": zod.string(),
+  "votingStartTime": zod.string().optional(),
+  "votingEndTime": zod.string().optional(),
+  "totalDeposit": zod.string(),
+  "yesVotes": zod.string(),
+  "noVotes": zod.string(),
+  "abstainVotes": zod.string(),
+  "noWithVetoVotes": zod.string(),
+  "totalVotingPower": zod.string(),
+  "quorumReached": zod.boolean(),
+  "contentSummary": zod.string().optional()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Single proposal detail
+ */
+export const GetGovernanceProposalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetGovernanceProposalResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "proposalType": zod.string(),
+  "status": zod.string(),
+  "proposerAddress": zod.string(),
+  "submitTime": zod.string(),
+  "depositEndTime": zod.string(),
+  "votingStartTime": zod.string().optional(),
+  "votingEndTime": zod.string().optional(),
+  "totalDeposit": zod.string(),
+  "yesVotes": zod.string(),
+  "noVotes": zod.string(),
+  "abstainVotes": zod.string(),
+  "noWithVetoVotes": zod.string(),
+  "totalVotingPower": zod.string(),
+  "quorumReached": zod.boolean(),
+  "contentSummary": zod.string().optional()
+})
+
+
+/**
+ * @summary Governance parameters
+ */
+export const GetGovernanceParamsResponse = zod.object({
+  "minDepositAmount": zod.string(),
+  "maxDepositPeriodDays": zod.number(),
+  "votingPeriodDays": zod.number(),
+  "quorum": zod.string(),
+  "threshold": zod.string(),
+  "vetoThreshold": zod.string()
+})
+
+
+/**
+ * @summary Price, TVL, volume history for charts
+ */
+export const getAnalyticsOverviewQueryDaysDefault = 30;
+
+export const GetAnalyticsOverviewQueryParams = zod.object({
+  "days": zod.coerce.number().default(getAnalyticsOverviewQueryDaysDefault)
+})
+
+export const GetAnalyticsOverviewResponse = zod.object({
+  "priceHistory": zod.array(zod.object({
+  "date": zod.string(),
+  "price": zod.number(),
+  "volume": zod.number(),
+  "tvl": zod.number().optional()
+})),
+  "tvlHistory": zod.array(zod.object({
+  "date": zod.string(),
+  "price": zod.number(),
+  "volume": zod.number(),
+  "tvl": zod.number().optional()
+})),
+  "volumeHistory": zod.array(zod.object({
+  "date": zod.string(),
+  "price": zod.number(),
+  "volume": zod.number(),
+  "tvl": zod.number().optional()
+})),
+  "currentPrice": zod.number(),
+  "priceChange24h": zod.number(),
+  "priceChange7d": zod.number().optional(),
+  "marketCap": zod.number(),
+  "fullyDilutedValuation": zod.number()
+})
+
+
+/**
+ * @summary List IBC channels
+ */
+export const ListIbcChannelsResponse = zod.object({
+  "channels": zod.array(zod.object({
+  "id": zod.number(),
+  "channelId": zod.string(),
+  "portId": zod.string(),
+  "counterpartyChain": zod.string(),
+  "counterpartyChannelId": zod.string(),
+  "counterpartyPortId": zod.string(),
+  "status": zod.string(),
+  "ordering": zod.string(),
+  "version": zod.string(),
+  "packetsSent": zod.number(),
+  "packetsReceived": zod.number(),
+  "totalValueUsd": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Top accounts by balance
+ */
+export const listLeaderboardAccountsQueryLimitDefault = 50;
+
+export const ListLeaderboardAccountsQueryParams = zod.object({
+  "limit": zod.coerce.number().default(listLeaderboardAccountsQueryLimitDefault)
+})
+
+export const ListLeaderboardAccountsResponse = zod.object({
+  "accounts": zod.array(zod.object({
+  "rank": zod.number(),
+  "address": zod.string(),
+  "label": zod.string().optional(),
+  "balance": zod.string(),
+  "stakedAmount": zod.string(),
+  "txCount": zod.number(),
+  "percentOfSupply": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
  * @summary Block-by-block tx count for chart (last 24 blocks)
  */
 export const GetChainActivityResponseItem = zod.object({

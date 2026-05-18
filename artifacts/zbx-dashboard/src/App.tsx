@@ -20,6 +20,11 @@ import Defi from "@/pages/defi";
 import Swap from "@/pages/swap";
 import Pools from "@/pages/pools";
 import Staking from "@/pages/staking";
+import Governance from "@/pages/governance";
+import Analytics from "@/pages/analytics";
+import Bridge from "@/pages/bridge";
+import Ibc from "@/pages/ibc";
+import Leaderboard from "@/pages/leaderboard";
 import ChainCode from "@/pages/chain-code";
 import Audit from "@/pages/audit";
 import Patches from "@/pages/patches";
@@ -45,6 +50,11 @@ function Router() {
         <Route path="/swap" component={Swap} />
         <Route path="/pools" component={Pools} />
         <Route path="/staking" component={Staking} />
+        <Route path="/governance" component={Governance} />
+        <Route path="/analytics" component={Analytics} />
+        <Route path="/bridge" component={Bridge} />
+        <Route path="/ibc" component={Ibc} />
+        <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/chain-code" component={ChainCode} />
         <Route path="/audit" component={Audit} />
         <Route path="/patches" component={Patches} />

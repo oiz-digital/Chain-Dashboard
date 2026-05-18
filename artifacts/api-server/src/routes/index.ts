@@ -10,6 +10,10 @@ import defiRouter from "./defi";
 import adminRouter from "./admin";
 import dexRouter from "./dex";
 import stakingRouter from "./staking";
+import governanceRouter from "./governance";
+import analyticsRouter from "./analytics";
+import ibcRouter from "./ibc";
+import leaderboardRouter from "./leaderboard";
 
 const router: IRouter = Router();
 
@@ -24,5 +28,9 @@ router.use(defiRouter);
 router.use(adminRouter);
 router.use(dexRouter);
 router.use(stakingRouter);
+router.use(governanceRouter);
+router.use(analyticsRouter);
+router.use(ibcRouter);
+router.use(leaderboardRouter);
 
 export default router;

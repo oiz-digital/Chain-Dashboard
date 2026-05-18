@@ -38,17 +38,26 @@ import type {
   AdminValidatorList,
   AiModelInput,
   AiModelUpdate,
+  AnalyticsOverview,
   BlockDetail,
   BlockList,
   ChainInfo,
   ChainStats,
   DefiStats,
   DexPool,
+  GetAnalyticsOverviewParams,
   GetStakingValidatorsParams,
   GetSwapQuoteParams,
+  GovernanceParams,
+  GovernanceProposal,
+  GovernanceProposalList,
   HealthStatus,
+  IbcChannelList,
   ListBlocksParams,
   ListDexPoolsParams,
+  ListGovernanceProposalsParams,
+  ListLeaderboardAccountsParams,
+  ListLeaderboardResponse,
   ListPoolsResponse,
   ListSwapTransactionsParams,
   ListSwapsResponse,
@@ -1575,6 +1584,489 @@ export function useGetStakingValidators<TData = Awaited<ReturnType<typeof getSta
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetStakingValidatorsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListGovernanceProposalsUrl = (params?: ListGovernanceProposalsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/governance/proposals?${stringifiedParams}` : `/api/governance/proposals`
+}
+
+/**
+ * @summary List governance proposals
+ */
+export const listGovernanceProposals = async (params?: ListGovernanceProposalsParams, options?: RequestInit): Promise<GovernanceProposalList> => {
+
+  return customFetch<GovernanceProposalList>(getListGovernanceProposalsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGovernanceProposalsQueryKey = (params?: ListGovernanceProposalsParams,) => {
+    return [
+    `/api/governance/proposals`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListGovernanceProposalsQueryOptions = <TData = Awaited<ReturnType<typeof listGovernanceProposals>>, TError = ErrorType<unknown>>(params?: ListGovernanceProposalsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernanceProposals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGovernanceProposalsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGovernanceProposals>>> = ({ signal }) => listGovernanceProposals(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGovernanceProposals>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGovernanceProposalsQueryResult = NonNullable<Awaited<ReturnType<typeof listGovernanceProposals>>>
+export type ListGovernanceProposalsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List governance proposals
+ */
+
+export function useListGovernanceProposals<TData = Awaited<ReturnType<typeof listGovernanceProposals>>, TError = ErrorType<unknown>>(
+ params?: ListGovernanceProposalsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernanceProposals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGovernanceProposalsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetGovernanceProposalUrl = (id: number,) => {
+
+
+
+
+  return `/api/governance/proposals/${id}`
+}
+
+/**
+ * @summary Single proposal detail
+ */
+export const getGovernanceProposal = async (id: number, options?: RequestInit): Promise<GovernanceProposal> => {
+
+  return customFetch<GovernanceProposal>(getGetGovernanceProposalUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGovernanceProposalQueryKey = (id: number,) => {
+    return [
+    `/api/governance/proposals/${id}`
+    ] as const;
+    }
+
+
+export const getGetGovernanceProposalQueryOptions = <TData = Awaited<ReturnType<typeof getGovernanceProposal>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernanceProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGovernanceProposalQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGovernanceProposal>>> = ({ signal }) => getGovernanceProposal(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGovernanceProposal>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGovernanceProposalQueryResult = NonNullable<Awaited<ReturnType<typeof getGovernanceProposal>>>
+export type GetGovernanceProposalQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Single proposal detail
+ */
+
+export function useGetGovernanceProposal<TData = Awaited<ReturnType<typeof getGovernanceProposal>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernanceProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGovernanceProposalQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetGovernanceParamsUrl = () => {
+
+
+
+
+  return `/api/governance/params`
+}
+
+/**
+ * @summary Governance parameters
+ */
+export const getGovernanceParams = async ( options?: RequestInit): Promise<GovernanceParams> => {
+
+  return customFetch<GovernanceParams>(getGetGovernanceParamsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGovernanceParamsQueryKey = () => {
+    return [
+    `/api/governance/params`
+    ] as const;
+    }
+
+
+export const getGetGovernanceParamsQueryOptions = <TData = Awaited<ReturnType<typeof getGovernanceParams>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernanceParams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGovernanceParamsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGovernanceParams>>> = ({ signal }) => getGovernanceParams({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGovernanceParams>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGovernanceParamsQueryResult = NonNullable<Awaited<ReturnType<typeof getGovernanceParams>>>
+export type GetGovernanceParamsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Governance parameters
+ */
+
+export function useGetGovernanceParams<TData = Awaited<ReturnType<typeof getGovernanceParams>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGovernanceParams>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGovernanceParamsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAnalyticsOverviewUrl = (params?: GetAnalyticsOverviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/analytics/overview?${stringifiedParams}` : `/api/analytics/overview`
+}
+
+/**
+ * @summary Price, TVL, volume history for charts
+ */
+export const getAnalyticsOverview = async (params?: GetAnalyticsOverviewParams, options?: RequestInit): Promise<AnalyticsOverview> => {
+
+  return customFetch<AnalyticsOverview>(getGetAnalyticsOverviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAnalyticsOverviewQueryKey = (params?: GetAnalyticsOverviewParams,) => {
+    return [
+    `/api/analytics/overview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAnalyticsOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getAnalyticsOverview>>, TError = ErrorType<unknown>>(params?: GetAnalyticsOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalyticsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnalyticsOverviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnalyticsOverview>>> = ({ signal }) => getAnalyticsOverview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnalyticsOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAnalyticsOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getAnalyticsOverview>>>
+export type GetAnalyticsOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Price, TVL, volume history for charts
+ */
+
+export function useGetAnalyticsOverview<TData = Awaited<ReturnType<typeof getAnalyticsOverview>>, TError = ErrorType<unknown>>(
+ params?: GetAnalyticsOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalyticsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAnalyticsOverviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListIbcChannelsUrl = () => {
+
+
+
+
+  return `/api/ibc/channels`
+}
+
+/**
+ * @summary List IBC channels
+ */
+export const listIbcChannels = async ( options?: RequestInit): Promise<IbcChannelList> => {
+
+  return customFetch<IbcChannelList>(getListIbcChannelsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListIbcChannelsQueryKey = () => {
+    return [
+    `/api/ibc/channels`
+    ] as const;
+    }
+
+
+export const getListIbcChannelsQueryOptions = <TData = Awaited<ReturnType<typeof listIbcChannels>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIbcChannels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListIbcChannelsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listIbcChannels>>> = ({ signal }) => listIbcChannels({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listIbcChannels>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListIbcChannelsQueryResult = NonNullable<Awaited<ReturnType<typeof listIbcChannels>>>
+export type ListIbcChannelsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List IBC channels
+ */
+
+export function useListIbcChannels<TData = Awaited<ReturnType<typeof listIbcChannels>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIbcChannels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListIbcChannelsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListLeaderboardAccountsUrl = (params?: ListLeaderboardAccountsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/leaderboard/accounts?${stringifiedParams}` : `/api/leaderboard/accounts`
+}
+
+/**
+ * @summary Top accounts by balance
+ */
+export const listLeaderboardAccounts = async (params?: ListLeaderboardAccountsParams, options?: RequestInit): Promise<ListLeaderboardResponse> => {
+
+  return customFetch<ListLeaderboardResponse>(getListLeaderboardAccountsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLeaderboardAccountsQueryKey = (params?: ListLeaderboardAccountsParams,) => {
+    return [
+    `/api/leaderboard/accounts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListLeaderboardAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listLeaderboardAccounts>>, TError = ErrorType<unknown>>(params?: ListLeaderboardAccountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeaderboardAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLeaderboardAccountsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeaderboardAccounts>>> = ({ signal }) => listLeaderboardAccounts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLeaderboardAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLeaderboardAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listLeaderboardAccounts>>>
+export type ListLeaderboardAccountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Top accounts by balance
+ */
+
+export function useListLeaderboardAccounts<TData = Awaited<ReturnType<typeof listLeaderboardAccounts>>, TError = ErrorType<unknown>>(
+ params?: ListLeaderboardAccountsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeaderboardAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLeaderboardAccountsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

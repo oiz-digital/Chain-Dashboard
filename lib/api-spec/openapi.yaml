@@ -386,6 +386,111 @@ paths:
               schema:
                 $ref: "#/components/schemas/StakingValidatorList"
 
+  # ─── GOVERNANCE ──────────────────────────────────────────────────────────────
+  /governance/proposals:
+    get:
+      operationId: listGovernanceProposals
+      tags: [governance]
+      summary: List governance proposals
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [all, voting_period, passed, rejected, deposit_period, failed], default: all }
+      responses:
+        "200":
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceProposalList"
+
+  /governance/proposals/{id}:
+    get:
+      operationId: getGovernanceProposal
+      tags: [governance]
+      summary: Single proposal detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Proposal detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceProposal"
+
+  /governance/params:
+    get:
+      operationId: getGovernanceParams
+      tags: [governance]
+      summary: Governance parameters
+      responses:
+        "200":
+          description: Governance params
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceParams"
+
+  # ─── ANALYTICS ───────────────────────────────────────────────────────────────
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Price, TVL, volume history for charts
+      parameters:
+        - in: query
+          name: days
+          schema: { type: integer, default: 30 }
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+
+  # ─── IBC ─────────────────────────────────────────────────────────────────────
+  /ibc/channels:
+    get:
+      operationId: listIbcChannels
+      tags: [ibc]
+      summary: List IBC channels
+      responses:
+        "200":
+          description: IBC channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IbcChannelList"
+
+  # ─── LEADERBOARD ─────────────────────────────────────────────────────────────
+  /leaderboard/accounts:
+    get:
+      operationId: listLeaderboardAccounts
+      tags: [explorer]
+      summary: Top accounts by balance
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Top accounts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLeaderboardResponse"
+
   /chain/activity:
     get:
       operationId: getChainActivity
@@ -1930,4 +2035,130 @@ components:
         validators:
           type: array
           items: { $ref: "#/components/schemas/StakingValidator" }
+        total: { type: integer }
+
+    # ─── GOVERNANCE SCHEMAS ───────────────────────────────────────────────────
+
+    GovernanceProposal:
+      type: object
+      required: [id, title, description, proposalType, status, proposerAddress, submitTime, depositEndTime, totalDeposit, yesVotes, noVotes, abstainVotes, noWithVetoVotes, totalVotingPower, quorumReached]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        proposalType: { type: string }
+        status: { type: string }
+        proposerAddress: { type: string }
+        submitTime: { type: string }
+        depositEndTime: { type: string }
+        votingStartTime: { type: string }
+        votingEndTime: { type: string }
+        totalDeposit: { type: string }
+        yesVotes: { type: string }
+        noVotes: { type: string }
+        abstainVotes: { type: string }
+        noWithVetoVotes: { type: string }
+        totalVotingPower: { type: string }
+        quorumReached: { type: boolean }
+        contentSummary: { type: string }
+
+    GovernanceProposalList:
+      type: object
+      required: [proposals, total]
+      properties:
+        proposals:
+          type: array
+          items: { $ref: "#/components/schemas/GovernanceProposal" }
+        total: { type: integer }
+
+    GovernanceParams:
+      type: object
+      required: [minDepositAmount, maxDepositPeriodDays, votingPeriodDays, quorum, threshold, vetoThreshold]
+      properties:
+        minDepositAmount: { type: string }
+        maxDepositPeriodDays: { type: integer }
+        votingPeriodDays: { type: integer }
+        quorum: { type: string }
+        threshold: { type: string }
+        vetoThreshold: { type: string }
+
+    # ─── ANALYTICS SCHEMAS ────────────────────────────────────────────────────
+
+    PricePoint:
+      type: object
+      required: [date, price, volume]
+      properties:
+        date: { type: string }
+        price: { type: number }
+        volume: { type: number }
+        tvl: { type: number }
+
+    AnalyticsOverview:
+      type: object
+      required: [priceHistory, tvlHistory, volumeHistory, currentPrice, priceChange24h, marketCap, fullyDilutedValuation]
+      properties:
+        priceHistory:
+          type: array
+          items: { $ref: "#/components/schemas/PricePoint" }
+        tvlHistory:
+          type: array
+          items: { $ref: "#/components/schemas/PricePoint" }
+        volumeHistory:
+          type: array
+          items: { $ref: "#/components/schemas/PricePoint" }
+        currentPrice: { type: number }
+        priceChange24h: { type: number }
+        priceChange7d: { type: number }
+        marketCap: { type: number }
+        fullyDilutedValuation: { type: number }
+
+    # ─── IBC SCHEMAS ──────────────────────────────────────────────────────────
+
+    IbcChannel:
+      type: object
+      required: [id, channelId, portId, counterpartyChain, counterpartyChannelId, counterpartyPortId, status, ordering, version, packetsSent, packetsReceived, totalValueUsd]
+      properties:
+        id: { type: integer }
+        channelId: { type: string }
+        portId: { type: string }
+        counterpartyChain: { type: string }
+        counterpartyChannelId: { type: string }
+        counterpartyPortId: { type: string }
+        status: { type: string }
+        ordering: { type: string }
+        version: { type: string }
+        packetsSent: { type: integer }
+        packetsReceived: { type: integer }
+        totalValueUsd: { type: string }
+
+    IbcChannelList:
+      type: object
+      required: [channels, total]
+      properties:
+        channels:
+          type: array
+          items: { $ref: "#/components/schemas/IbcChannel" }
+        total: { type: integer }
+
+    # ─── LEADERBOARD SCHEMAS ─────────────────────────────────────────────────
+
+    LeaderboardAccount:
+      type: object
+      required: [rank, address, balance, stakedAmount, txCount, percentOfSupply]
+      properties:
+        rank: { type: integer }
+        address: { type: string }
+        label: { type: string }
+        balance: { type: string }
+        stakedAmount: { type: string }
+        txCount: { type: integer }
+        percentOfSupply: { type: string }
+
+    ListLeaderboardResponse:
+      type: object
+      required: [accounts, total]
+      properties:
+        accounts:
+          type: array
+          items: { $ref: "#/components/schemas/LeaderboardAccount" }
         total: { type: integer }
