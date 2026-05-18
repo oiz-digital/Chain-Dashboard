@@ -296,6 +296,177 @@ export const GetDefiStatsResponse = zod.object({
 
 
 /**
+ * @summary List AMM liquidity pools
+ */
+export const listDexPoolsQueryPageDefault = 1;
+export const listDexPoolsQueryLimitDefault = 20;
+export const listDexPoolsQuerySortByDefault = `tvl`;
+
+export const ListDexPoolsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listDexPoolsQueryPageDefault),
+  "limit": zod.coerce.number().default(listDexPoolsQueryLimitDefault),
+  "sortBy": zod.enum(['tvl', 'volume', 'apy', 'fees']).default(listDexPoolsQuerySortByDefault)
+})
+
+export const ListDexPoolsResponse = zod.object({
+  "pools": zod.array(zod.object({
+  "id": zod.number(),
+  "pairName": zod.string(),
+  "token0Symbol": zod.string(),
+  "token1Symbol": zod.string(),
+  "contractAddress": zod.string(),
+  "token0Reserve": zod.string(),
+  "token1Reserve": zod.string(),
+  "lpTokenSupply": zod.string().optional(),
+  "tvlUsd": zod.string(),
+  "volume24h": zod.string(),
+  "volume7d": zod.string(),
+  "fees24h": zod.string(),
+  "apy": zod.string(),
+  "feeTier": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string().optional()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Single liquidity pool details
+ */
+export const GetDexPoolParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetDexPoolResponse = zod.object({
+  "id": zod.number(),
+  "pairName": zod.string(),
+  "token0Symbol": zod.string(),
+  "token1Symbol": zod.string(),
+  "contractAddress": zod.string(),
+  "token0Reserve": zod.string(),
+  "token1Reserve": zod.string(),
+  "lpTokenSupply": zod.string().optional(),
+  "tvlUsd": zod.string(),
+  "volume24h": zod.string(),
+  "volume7d": zod.string(),
+  "fees24h": zod.string(),
+  "apy": zod.string(),
+  "feeTier": zod.string(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Get swap quote for a token pair
+ */
+export const getSwapQuoteQuerySlippageDefault = `0.5`;
+
+export const GetSwapQuoteQueryParams = zod.object({
+  "tokenIn": zod.coerce.string(),
+  "tokenOut": zod.coerce.string(),
+  "amountIn": zod.coerce.string(),
+  "slippage": zod.coerce.string().default(getSwapQuoteQuerySlippageDefault)
+})
+
+export const GetSwapQuoteResponse = zod.object({
+  "tokenIn": zod.string(),
+  "tokenOut": zod.string(),
+  "amountIn": zod.string(),
+  "amountOut": zod.string(),
+  "priceImpact": zod.string(),
+  "executionPrice": zod.string(),
+  "minimumReceived": zod.string(),
+  "fee": zod.string(),
+  "poolId": zod.number(),
+  "route": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Recent swap transactions
+ */
+export const listSwapTransactionsQueryPageDefault = 1;
+export const listSwapTransactionsQueryLimitDefault = 20;
+
+export const ListSwapTransactionsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listSwapTransactionsQueryPageDefault),
+  "limit": zod.coerce.number().default(listSwapTransactionsQueryLimitDefault),
+  "poolId": zod.coerce.number().optional()
+})
+
+export const ListSwapTransactionsResponse = zod.object({
+  "swaps": zod.array(zod.object({
+  "id": zod.number(),
+  "txHash": zod.string(),
+  "walletAddress": zod.string().optional(),
+  "tokenIn": zod.string(),
+  "tokenOut": zod.string(),
+  "amountIn": zod.string(),
+  "amountOut": zod.string(),
+  "priceImpact": zod.string(),
+  "executionPrice": zod.string(),
+  "poolId": zod.number().optional(),
+  "slippage": zod.string().optional(),
+  "gasUsed": zod.number().optional(),
+  "status": zod.enum(['success', 'failed', 'pending']),
+  "blockHeight": zod.number(),
+  "createdAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Staking protocol overview and stats
+ */
+export const GetStakingOverviewResponse = zod.object({
+  "totalStaked": zod.string(),
+  "totalDelegators": zod.number(),
+  "activeValidators": zod.number(),
+  "stakingApr": zod.string(),
+  "liquidStakingTvl": zod.string(),
+  "rewardsDistributed24h": zod.string(),
+  "inflationRate": zod.string(),
+  "zbxPrice": zod.number(),
+  "unbondingPeriodDays": zod.number().optional(),
+  "minStakeAmount": zod.string().optional()
+})
+
+
+/**
+ * @summary Validators with staking APR and delegation info
+ */
+export const getStakingValidatorsQueryPageDefault = 1;
+export const getStakingValidatorsQueryLimitDefault = 20;
+
+export const GetStakingValidatorsQueryParams = zod.object({
+  "page": zod.coerce.number().default(getStakingValidatorsQueryPageDefault),
+  "limit": zod.coerce.number().default(getStakingValidatorsQueryLimitDefault)
+})
+
+export const GetStakingValidatorsResponse = zod.object({
+  "validators": zod.array(zod.object({
+  "id": zod.number(),
+  "address": zod.string(),
+  "moniker": zod.string(),
+  "status": zod.string(),
+  "commission": zod.string(),
+  "totalStaked": zod.string(),
+  "selfStaked": zod.string().optional(),
+  "delegators": zod.number(),
+  "uptime": zod.string(),
+  "apr": zod.string(),
+  "rank": zod.number(),
+  "website": zod.string().optional(),
+  "description": zod.string().optional()
+})),
+  "total": zod.number()
+})
+
+
+/**
  * @summary Block-by-block tx count for chart (last 24 blocks)
  */
 export const GetChainActivityResponseItem = zod.object({

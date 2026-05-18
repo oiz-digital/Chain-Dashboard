@@ -24,6 +24,8 @@ tags:
     description: ZBX token economics
   - name: defi
     description: DeFi and liquidity stats
+  - name: staking
+    description: Staking protocol
   - name: admin
     description: Admin panel operations
 paths:
@@ -257,6 +259,132 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefiStats"
+
+  /dex/pools:
+    get:
+      operationId: listDexPools
+      tags: [defi]
+      summary: List AMM liquidity pools
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: sortBy
+          schema: { type: string, enum: [tvl, volume, apy, fees], default: tvl }
+      responses:
+        "200":
+          description: List of liquidity pools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPoolsResponse"
+
+  /dex/pools/{id}:
+    get:
+      operationId: getDexPool
+      tags: [defi]
+      summary: Single liquidity pool details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Pool details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DexPool"
+
+  /dex/swap/quote:
+    get:
+      operationId: getSwapQuote
+      tags: [defi]
+      summary: Get swap quote for a token pair
+      parameters:
+        - in: query
+          name: tokenIn
+          required: true
+          schema: { type: string }
+        - in: query
+          name: tokenOut
+          required: true
+          schema: { type: string }
+        - in: query
+          name: amountIn
+          required: true
+          schema: { type: string }
+        - in: query
+          name: slippage
+          schema: { type: string, default: "0.5" }
+      responses:
+        "200":
+          description: Swap quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwapQuote"
+
+  /dex/swaps:
+    get:
+      operationId: listSwapTransactions
+      tags: [defi]
+      summary: Recent swap transactions
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: poolId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: List of swap transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSwapsResponse"
+
+  /staking/overview:
+    get:
+      operationId: getStakingOverview
+      tags: [staking]
+      summary: Staking protocol overview and stats
+      responses:
+        "200":
+          description: Staking overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StakingOverview"
+
+  /staking/validators:
+    get:
+      operationId: getStakingValidators
+      tags: [staking]
+      summary: Validators with staking APR and delegation info
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Staking validators list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StakingValidatorList"
 
   /chain/activity:
     get:
@@ -1681,3 +1809,125 @@ components:
       properties:
         value:
           type: string
+
+    # ─── DEX / SWAP SCHEMAS ────────────────────────────────────────────────────
+
+    DexPool:
+      type: object
+      required: [id, pairName, token0Symbol, token1Symbol, contractAddress, token0Reserve, token1Reserve, tvlUsd, volume24h, volume7d, fees24h, apy, feeTier, isActive]
+      properties:
+        id: { type: integer }
+        pairName: { type: string }
+        token0Symbol: { type: string }
+        token1Symbol: { type: string }
+        contractAddress: { type: string }
+        token0Reserve: { type: string }
+        token1Reserve: { type: string }
+        lpTokenSupply: { type: string }
+        tvlUsd: { type: string }
+        volume24h: { type: string }
+        volume7d: { type: string }
+        fees24h: { type: string }
+        apy: { type: string }
+        feeTier: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string }
+
+    ListPoolsResponse:
+      type: object
+      required: [pools, total]
+      properties:
+        pools:
+          type: array
+          items: { $ref: "#/components/schemas/DexPool" }
+        total: { type: integer }
+
+    SwapQuote:
+      type: object
+      required: [tokenIn, tokenOut, amountIn, amountOut, priceImpact, executionPrice, minimumReceived, fee, route, poolId]
+      properties:
+        tokenIn: { type: string }
+        tokenOut: { type: string }
+        amountIn: { type: string }
+        amountOut: { type: string }
+        priceImpact: { type: string }
+        executionPrice: { type: string }
+        minimumReceived: { type: string }
+        fee: { type: string }
+        poolId: { type: integer }
+        route:
+          type: array
+          items: { type: string }
+
+    SwapTx:
+      type: object
+      required: [id, txHash, tokenIn, tokenOut, amountIn, amountOut, priceImpact, executionPrice, status, blockHeight, createdAt]
+      properties:
+        id: { type: integer }
+        txHash: { type: string }
+        walletAddress: { type: string }
+        tokenIn: { type: string }
+        tokenOut: { type: string }
+        amountIn: { type: string }
+        amountOut: { type: string }
+        priceImpact: { type: string }
+        executionPrice: { type: string }
+        poolId: { type: integer }
+        slippage: { type: string }
+        gasUsed: { type: integer }
+        status: { type: string, enum: [success, failed, pending] }
+        blockHeight: { type: integer }
+        createdAt: { type: string }
+
+    ListSwapsResponse:
+      type: object
+      required: [swaps, total]
+      properties:
+        swaps:
+          type: array
+          items: { $ref: "#/components/schemas/SwapTx" }
+        total: { type: integer }
+
+    # ─── STAKING SCHEMAS ────────────────────────────────────────────────────────
+
+    StakingOverview:
+      type: object
+      required: [totalStaked, totalDelegators, activeValidators, stakingApr, liquidStakingTvl, rewardsDistributed24h, inflationRate, zbxPrice]
+      properties:
+        totalStaked: { type: string }
+        totalDelegators: { type: integer }
+        activeValidators: { type: integer }
+        stakingApr: { type: string }
+        liquidStakingTvl: { type: string }
+        rewardsDistributed24h: { type: string }
+        inflationRate: { type: string }
+        zbxPrice: { type: number }
+        unbondingPeriodDays: { type: integer }
+        minStakeAmount: { type: string }
+
+    StakingValidator:
+      type: object
+      required: [id, address, moniker, status, commission, totalStaked, delegators, uptime, apr, rank]
+      properties:
+        id: { type: integer }
+        address: { type: string }
+        moniker: { type: string }
+        status: { type: string }
+        commission: { type: string }
+        totalStaked: { type: string }
+        selfStaked: { type: string }
+        delegators: { type: integer }
+        uptime: { type: string }
+        apr: { type: string }
+        rank: { type: integer }
+        website: { type: string }
+        description: { type: string }
+
+    StakingValidatorList:
+      type: object
+      required: [validators, total]
+      properties:
+        validators:
+          type: array
+          items: { $ref: "#/components/schemas/StakingValidator" }
+        total: { type: integer }

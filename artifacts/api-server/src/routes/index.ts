@@ -8,6 +8,8 @@ import walletRouter from "./wallet";
 import tokensRouter from "./tokens";
 import defiRouter from "./defi";
 import adminRouter from "./admin";
+import dexRouter from "./dex";
+import stakingRouter from "./staking";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(walletRouter);
 router.use(tokensRouter);
 router.use(defiRouter);
 router.use(adminRouter);
+router.use(dexRouter);
+router.use(stakingRouter);
 
 export default router;

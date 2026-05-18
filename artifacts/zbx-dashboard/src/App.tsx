@@ -17,6 +17,9 @@ import ValidatorDetail from "@/pages/validator-detail";
 import Wallet from "@/pages/wallet";
 import Tokens from "@/pages/tokens";
 import Defi from "@/pages/defi";
+import Swap from "@/pages/swap";
+import Pools from "@/pages/pools";
+import Staking from "@/pages/staking";
 import ChainCode from "@/pages/chain-code";
 import Audit from "@/pages/audit";
 import Patches from "@/pages/patches";
@@ -39,6 +42,9 @@ function Router() {
         <Route path="/wallet" component={Wallet} />
         <Route path="/tokens" component={Tokens} />
         <Route path="/defi" component={Defi} />
+        <Route path="/swap" component={Swap} />
+        <Route path="/pools" component={Pools} />
+        <Route path="/staking" component={Staking} />
         <Route path="/chain-code" component={ChainCode} />
         <Route path="/audit" component={Audit} />
         <Route path="/patches" component={Patches} />

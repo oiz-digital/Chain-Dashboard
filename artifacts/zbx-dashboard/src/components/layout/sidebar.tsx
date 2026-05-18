@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Box, ArrowRightLeft, Users, Wallet, Coins, Landmark,
   Menu, X, Code2, ClipboardList, Wrench, Bot, MessageSquare,
-  Zap, TrendingUp, Activity, ChevronRight, Cpu
+  Zap, TrendingUp, Activity, ChevronRight, Cpu, Repeat2, Droplets, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetChainStats } from "@workspace/api-client-react";
@@ -19,6 +19,14 @@ const NAV_SECTIONS = [
       { href: "/wallet", label: "Wallet Lookup", icon: Wallet },
       { href: "/tokens", label: "Tokens", icon: Coins },
       { href: "/defi", label: "DeFi", icon: Landmark },
+    ],
+  },
+  {
+    label: "DeFi",
+    items: [
+      { href: "/swap", label: "Swap", icon: Repeat2 },
+      { href: "/pools", label: "Liquidity Pools", icon: Droplets },
+      { href: "/staking", label: "Staking", icon: Shield },
     ],
   },
   {

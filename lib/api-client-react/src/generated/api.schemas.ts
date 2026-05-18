@@ -652,12 +652,149 @@ export interface SettingUpdate {
   value: string;
 }
 
+export interface DexPool {
+  id: number;
+  pairName: string;
+  token0Symbol: string;
+  token1Symbol: string;
+  contractAddress: string;
+  token0Reserve: string;
+  token1Reserve: string;
+  lpTokenSupply?: string;
+  tvlUsd: string;
+  volume24h: string;
+  volume7d: string;
+  fees24h: string;
+  apy: string;
+  feeTier: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface ListPoolsResponse {
+  pools: DexPool[];
+  total: number;
+}
+
+export interface SwapQuote {
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  amountOut: string;
+  priceImpact: string;
+  executionPrice: string;
+  minimumReceived: string;
+  fee: string;
+  poolId: number;
+  route: string[];
+}
+
+export type SwapTxStatus = typeof SwapTxStatus[keyof typeof SwapTxStatus];
+
+
+export const SwapTxStatus = {
+  success: 'success',
+  failed: 'failed',
+  pending: 'pending',
+} as const;
+
+export interface SwapTx {
+  id: number;
+  txHash: string;
+  walletAddress?: string;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  amountOut: string;
+  priceImpact: string;
+  executionPrice: string;
+  poolId?: number;
+  slippage?: string;
+  gasUsed?: number;
+  status: SwapTxStatus;
+  blockHeight: number;
+  createdAt: string;
+}
+
+export interface ListSwapsResponse {
+  swaps: SwapTx[];
+  total: number;
+}
+
+export interface StakingOverview {
+  totalStaked: string;
+  totalDelegators: number;
+  activeValidators: number;
+  stakingApr: string;
+  liquidStakingTvl: string;
+  rewardsDistributed24h: string;
+  inflationRate: string;
+  zbxPrice: number;
+  unbondingPeriodDays?: number;
+  minStakeAmount?: string;
+}
+
+export interface StakingValidator {
+  id: number;
+  address: string;
+  moniker: string;
+  status: string;
+  commission: string;
+  totalStaked: string;
+  selfStaked?: string;
+  delegators: number;
+  uptime: string;
+  apr: string;
+  rank: number;
+  website?: string;
+  description?: string;
+}
+
+export interface StakingValidatorList {
+  validators: StakingValidator[];
+  total: number;
+}
+
 export type ListBlocksParams = {
 page?: number;
 limit?: number;
 };
 
 export type ListTransactionsParams = {
+page?: number;
+limit?: number;
+};
+
+export type ListDexPoolsParams = {
+page?: number;
+limit?: number;
+sortBy?: ListDexPoolsSortBy;
+};
+
+export type ListDexPoolsSortBy = typeof ListDexPoolsSortBy[keyof typeof ListDexPoolsSortBy];
+
+
+export const ListDexPoolsSortBy = {
+  tvl: 'tvl',
+  volume: 'volume',
+  apy: 'apy',
+  fees: 'fees',
+} as const;
+
+export type GetSwapQuoteParams = {
+tokenIn: string;
+tokenOut: string;
+amountIn: string;
+slippage?: string;
+};
+
+export type ListSwapTransactionsParams = {
+page?: number;
+limit?: number;
+poolId?: number;
+};
+
+export type GetStakingValidatorsParams = {
 page?: number;
 limit?: number;
 };
