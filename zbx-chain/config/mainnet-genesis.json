@@ -1,4 +1,22 @@
 {
+  "_README": [
+    "OPERATOR SPEC TEMPLATE — NOT LOADED AT BOOT.",
+    "",
+    "Mainnet (chain_id 8989) boots from the hardcoded GenesisConfig::mainnet()",
+    "preset in node/src/genesis.rs. This JSON is the human-readable spec that",
+    "captures the FULL tokenomics + ZUSD + AMM + burn + staking parameters that",
+    "the runtime preset implements. It is NOT in GenesisConfig schema (which",
+    "only covers chain_id, alloc[], validators[]).",
+    "",
+    "To activate operator-supplied genesis (e.g. with real validator BLS keys",
+    "generated via zbx-keygen on secure hardware), produce a SEPARATE file in",
+    "the GenesisConfig schema with keys { chain_id, timestamp, gas_limit,",
+    "base_fee, extra_data, alloc[{address,balance,nonce?,code?,storage?}],",
+    "validators[address] } and point chain.genesis_file at it in mainnet.toml.",
+    "validate_no_placeholders() will reject any address whose first 18 bytes",
+    "are all zero on chain_id 8989, so PLACEHOLDER_* literals here can never",
+    "accidentally reach a live mainnet boot."
+  ],
   "chain_id":    8989,
   "chain_name":  "Zebvix Chain",
   "timestamp":   "2025-06-01T00:00:00Z",
