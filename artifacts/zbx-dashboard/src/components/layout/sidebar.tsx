@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Code2,
-  ClipboardList
+  ClipboardList,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/defi", label: "DeFi", icon: Landmark },
   { href: "/chain-code", label: "Chain Code", icon: Code2 },
   { href: "/audit", label: "Feature Audit", icon: ClipboardList },
+  { href: "/patches", label: "Gap Fixes", icon: Wrench },
 ];
 
 export function Sidebar() {
