@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Router, type IRouter } from "express";
 import {
   ListBlocksQueryParams,
@@ -8,54 +9,86 @@ import {
 
 const router: IRouter = Router();
 
-const VALIDATORS = [
+export const VALIDATORS = [
   "0x3a8F4b291cE7D3A9Fc2b8E14D6a905B7c3f1e2d",
   "0x7c2E9d1F8B4A3C6e5D0b9F2a7e4C8d1B3f6A9c2",
   "0xB5d4E7f2A9C3b8F1e6D0a5C2b9E4f7A3d8B1e6F",
   "0xD1F6a3B8e5C2d9F4b7E0a3C8d5F2b9E6a1D4c7B",
   "0x9E2b7D4f1A6c3B8e5F0d7A2b9E4c1F6d3B8a5E2",
+  "0xA4c7F9e2B5D8a1C6f3E0b7D4a9C2e5F8b1A6d3C",
+  "0xF2a8D5b3E6c1A9f4B7e0C3d8F5a2B9e6C1d4A7f",
+  "0x6B9c3E0f7A4d1B8e5C2a9F6b3D0e7C4a1B8f5E2",
+  "0xC8e5F2a9D6b3E0c7A4f1B8e5C2d9F6a3B0e7D4c",
+  "0x1D4f8B2e6A9c3F0b7E4d1A8c5F2b9E6a3D0f7B4",
+  "0xE3b0C4f8A9d6B3e0F7a4C1b8E5d2A9f6C3b0E7d4",
+  "0x2F5a9D3b7E0c4A8f1B6e3D0a7F4c1B8e5A2d9F6",
+  "0x7A1d4F8b2E6c9A3f0B7e4D1a8C5f2B9e6A3d0F7",
+  "0x4C8e1F5a9D3b6E0c7A4f1B8e5C2d9F6a3B0e7D4",
+  "0xB0e7D4c1F8a5E2b9C6f3A0d7B4e1F8c5A2b9E6d3",
+  "0x9F6a3D0f7B4e1C8a5E2b9F6c3A0d7B4e1F8c5A2",
+  "0x5E2b9F6a3D0c7F4b1E8a5C2d9F6a3B0e7D4c1F8",
+  "0xD7b4E1f8C5a2B9e6C3f0A7d4B1e8F5c2A9b6E3d0",
+  "0x8C5a2D9f6A3b0E7d4C1f8B5a2E9f6C3a0D7b4E1",
+  "0x3A0d7B4e1F8c5A2b9E6c3F0a7D4b1E8f5C2a9B6",
+  "0xF5c2A9b6E3d0F7b4C1e8A5d2B9f6C3a0D7b4E1f8",
 ];
 
-const MONIKERS: Record<string, string> = {
+export const MONIKERS: Record<string, string> = {
   "0x3a8F4b291cE7D3A9Fc2b8E14D6a905B7c3f1e2d": "ZebvixNode-1",
   "0x7c2E9d1F8B4A3C6e5D0b9F2a7e4C8d1B3f6A9c2": "AlphaValidator",
   "0xB5d4E7f2A9C3b8F1e6D0a5C2b9E4f7A3d8B1e6F": "NovaMint",
   "0xD1F6a3B8e5C2d9F4b7E0a3C8d5F2b9E6a1D4c7B": "BlockFusion",
   "0x9E2b7D4f1A6c3B8e5F0d7A2b9E4c1F6d3B8a5E2": "ZenithStake",
+  "0xA4c7F9e2B5D8a1C6f3E0b7D4a9C2e5F8b1A6d3C": "CryptoForge-6",
+  "0xF2a8D5b3E6c1A9f4B7e0C3d8F5a2B9e6C1d4A7f": "NexusNode-7",
+  "0x6B9c3E0f7A4d1B8e5C2a9F6b3D0e7C4a1B8f5E2": "StellarChain-8",
+  "0xC8e5F2a9D6b3E0c7A4f1B8e5C2d9F6a3B0e7D4c": "QuantumValidator",
+  "0x1D4f8B2e6A9c3F0b7E4d1A8c5F2b9E6a3D0f7B4": "DeepStake-10",
+  "0xE3b0C4f8A9d6B3e0F7a4C1b8E5d2A9f6C3b0E7d4": "OmegaNode-11",
+  "0x2F5a9D3b7E0c4A8f1B6e3D0a7F4c1B8e5A2d9F6": "VaultStake-12",
+  "0x7A1d4F8b2E6c9A3f0B7e4D1a8C5f2B9e6A3d0F7": "PeakValidator-13",
+  "0x4C8e1F5a9D3b6E0c7A4f1B8e5C2d9F6a3B0e7D4": "ZbxSentinel-14",
+  "0xB0e7D4c1F8a5E2b9C6f3A0d7B4e1F8c5A2b9E6d3": "IronCore-15",
+  "0x9F6a3D0f7B4e1C8a5E2b9F6c3A0d7B4e1F8c5A2": "CrystalNode-16",
+  "0x5E2b9F6a3D0c7F4b1E8a5C2d9F6a3B0e7D4c1F8": "NebulaMint-17",
+  "0xD7b4E1f8C5a2B9e6C3f0A7d4B1e8F5c2A9b6E3d0": "TitanStake-18",
+  "0x8C5a2D9f6A3b0E7d4C1f8B5a2E9f6C3a0D7b4E1": "PhoenixNode-19",
+  "0x3A0d7B4e1F8c5A2b9E6c3F0a7D4b1E8f5C2a9B6": "CosmosGuard-20",
+  "0xF5c2A9b6E3d0F7b4C1e8A5d2B9f6C3a0D7b4E1f8": "ZbxUltra-21",
 };
 
-function hashFromHeight(height: number, salt = 0): string {
-  const seed = (height * 1000003 + salt * 999983) >>> 0;
-  const hex1 = (seed * 1664525 + 1013904223) >>> 0;
-  const hex2 = (hex1 * 1664525 + 1013904223) >>> 0;
-  const hex3 = (hex2 * 1664525 + 1013904223) >>> 0;
-  const hex4 = (hex3 * 1664525 + 1013904223) >>> 0;
-  return (
-    "0x" +
-    [hex1, hex2, hex3, hex4]
-      .map((n) => n.toString(16).padStart(8, "0"))
-      .join("")
-  );
+export function deterministicHash(input: string): string {
+  return "0x" + createHash("sha256").update(input).digest("hex");
 }
 
-function getCurrentHeight(): number {
-  const base = 2_847_312;
-  return base + Math.floor((Date.now() - new Date("2025-01-01").getTime()) / 5000);
+export function hashFromHeight(height: number, salt: string | number = 0): string {
+  return deterministicHash(`zbx:block:${height}:${salt}:chain8989`);
 }
 
-function blockData(height: number) {
+export function getCurrentHeight(): number {
+  const startTime = new Date("2025-01-01T00:00:00Z").getTime();
+  const elapsed   = Math.floor((Date.now() - startTime) / 5000);
+  return 2_847_312 + elapsed;
+}
+
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed + 1) * 10000;
+  return x - Math.floor(x);
+}
+
+export function blockData(height: number) {
   const validatorIdx = height % VALIDATORS.length;
-  const validator = VALIDATORS[validatorIdx];
-  const txCount = Math.max(0, Math.floor(5 + Math.sin(height / 3) * 4 + (height % 7)));
-  const gasUsed = txCount * 21000 + Math.floor(height % 500) * 1000;
-  const gasLimit = 30_000_000;
-  const size = 1200 + txCount * 250 + (height % 300);
-  const secondsAgo = (getCurrentHeight() - height) * 5;
-  const timestamp = new Date(Date.now() - secondsAgo * 1000).toISOString();
+  const validator    = VALIDATORS[validatorIdx];
+  const txCount      = Math.max(0, Math.floor(5 + Math.sin(height / 3) * 4 + (height % 7)));
+  const gasUsed      = txCount * 21000 + Math.floor(height % 500) * 1000;
+  const gasLimit     = 30_000_000;
+  const size         = 1200 + txCount * 250 + (height % 300);
+  const secondsAgo   = (getCurrentHeight() - height) * 5;
+  const timestamp    = new Date(Date.now() - secondsAgo * 1000).toISOString();
 
   return {
     height,
-    hash: hashFromHeight(height),
+    hash:       hashFromHeight(height),
     parentHash: hashFromHeight(height - 1),
     timestamp,
     txCount,
@@ -63,9 +96,9 @@ function blockData(height: number) {
     gasUsed,
     gasLimit,
     size,
-    reward: "3",
-    stateRoot: hashFromHeight(height, 1),
-    txHash: hashFromHeight(height, 2),
+    reward:    "3",
+    stateRoot: hashFromHeight(height, "state"),
+    txHash:    hashFromHeight(height, "txroot"),
   };
 }
 
@@ -75,10 +108,10 @@ router.get("/blocks", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const page = query.data.page ?? 1;
-  const limit = Math.min(query.data.limit ?? 20, 50);
-  const latestHeight = getCurrentHeight();
-  const startHeight = latestHeight - (page - 1) * limit;
+  const page          = query.data.page  ?? 1;
+  const limit         = Math.min(query.data.limit ?? 20, 50);
+  const latestHeight  = getCurrentHeight();
+  const startHeight   = latestHeight - (page - 1) * limit;
 
   const blocks = [];
   for (let i = 0; i < limit; i++) {
@@ -86,69 +119,57 @@ router.get("/blocks", async (req, res): Promise<void> => {
     if (h < 1) break;
     const b = blockData(h);
     blocks.push({
-      height: b.height,
-      hash: b.hash,
+      height:    b.height,
+      hash:      b.hash,
       timestamp: b.timestamp,
-      txCount: b.txCount,
+      txCount:   b.txCount,
       validator: b.validator,
-      gasUsed: b.gasUsed,
-      gasLimit: b.gasLimit,
-      size: b.size,
-      reward: b.reward,
+      gasUsed:   b.gasUsed,
+      gasLimit:  b.gasLimit,
+      size:      b.size,
+      reward:    b.reward,
     });
   }
 
-  res.json(
-    ListBlocksResponse.parse({
-      blocks,
-      total: latestHeight,
-      page,
-      limit,
-    })
-  );
+  res.json(ListBlocksResponse.parse({ blocks, total: latestHeight, page, limit }));
 });
 
 router.get("/blocks/:height", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.height) ? req.params.height[0] : req.params.height;
+  const raw    = Array.isArray(req.params.height) ? req.params.height[0] : req.params.height;
   const params = GetBlockParams.safeParse({ height: parseInt(raw, 10) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const height = params.data.height;
-  const latestHeight = getCurrentHeight();
+  const height        = params.data.height;
+  const latestHeight  = getCurrentHeight();
   if (height < 1 || height > latestHeight) {
     res.status(404).json({ error: "Block not found" });
     return;
   }
 
-  const b = blockData(height);
+  const b   = blockData(height);
   const txs = [];
   for (let i = 0; i < b.txCount; i++) {
-    const txHash = hashFromHeight(height, i + 10);
-    const types = ["transfer", "stake", "delegate", "contract", "reward"] as const;
-    const type = types[i % types.length];
+    const txHash = deterministicHash(`zbx:tx:${height}:${i}:chain8989`);
+    const types  = ["transfer", "stake", "delegate", "contract", "reward"] as const;
+    const type   = types[i % types.length];
+    const amtSeed = height * 31 + i * 7;
     txs.push({
-      hash: txHash,
+      hash:        txHash,
       blockHeight: height,
-      timestamp: b.timestamp,
-      from: VALIDATORS[i % VALIDATORS.length],
-      to: VALIDATORS[(i + 1) % VALIDATORS.length],
-      amount: (Math.random() * 100 + 0.001).toFixed(6),
-      fee: "0.001",
-      status: "success" as const,
+      timestamp:   b.timestamp,
+      from:        VALIDATORS[i % VALIDATORS.length],
+      to:          VALIDATORS[(i + 2) % VALIDATORS.length],
+      amount:      ((amtSeed % 10000) * 0.0047 + 0.001).toFixed(6),
+      fee:         "0.001",
+      status:      "success" as const,
       type,
     });
   }
 
-  res.json(
-    GetBlockResponse.parse({
-      ...b,
-      transactions: txs,
-    })
-  );
+  res.json(GetBlockResponse.parse({ ...b, transactions: txs }));
 });
 
-export { VALIDATORS, MONIKERS, hashFromHeight, getCurrentHeight, blockData };
 export default router;

@@ -30,6 +30,7 @@ import Audit from "@/pages/audit";
 import Patches from "@/pages/patches";
 import AIFeatures from "@/pages/ai-features";
 import AIAgent from "@/pages/ai-agent";
+import SearchPage from "@/pages/search";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ function Router() {
         <Route path="/patches" component={Patches} />
         <Route path="/ai-features" component={AIFeatures} />
         <Route path="/ai-agent" component={AIAgent} />
+        <Route path="/search" component={SearchPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

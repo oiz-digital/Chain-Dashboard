@@ -5,7 +5,7 @@ import {
   appUsersTable, userSessionsTable,
   conversationsTable, messagesTable,
 } from "@workspace/db";
-import { eq, and, gt, or, desc, ilike, sql } from "drizzle-orm";
+import { eq, and, gt, lt, or, desc, ilike, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -257,7 +257,7 @@ router.get("/chat/conversations/:id/messages", async (req, res): Promise<void> =
   const before = req.query.before ? new Date(req.query.before as string) : new Date();
 
   const msgs = await db.select().from(messagesTable)
-    .where(and(eq(messagesTable.conversationId, convId), gt(before, messagesTable.createdAt)))
+    .where(and(eq(messagesTable.conversationId, convId), lt(messagesTable.createdAt, before)))
     .orderBy(desc(messagesTable.createdAt))
     .limit(limit);
 

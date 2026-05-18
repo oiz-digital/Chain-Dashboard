@@ -19,10 +19,12 @@ import adminAppUsersRouter from "./admin-app-users";
 import adminFeatureFlagsRouter from "./admin-feature-flags";
 import adminInvitesRouter from "./admin-invites";
 import chatRouter from "./chat";
+import searchRouter from "./search";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(searchRouter);
 router.use(chainRouter);
 router.use(blocksRouter);
 router.use(transactionsRouter);

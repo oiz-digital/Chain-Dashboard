@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   Shield, Cpu, Network, Database, Zap, Coins, Lock, Globe, FlaskConical,
   FileCode2, GitBranch, BarChart3, Layers, CheckCircle2, Clock, AlertTriangle,
-  ChevronDown, ChevronRight, ExternalLink, BookOpen, Code2, TrendingUp, Bot
+  ChevronDown, ChevronRight, ExternalLink, BookOpen, Code2, TrendingUp, Bot, Wrench
 } from "lucide-react";
 
 type Status = "DEPLOYED" | "IMPLEMENTED" | "ACCEPTED" | "DRAFT" | "FINAL" | "REVIEW";
@@ -446,6 +446,95 @@ export default function Audit() {
             <Row label="Benchmarks" value="benches/ — Criterion benchmarks" />
             <Row label="ZVM integration tests" value="20 pass/fail test files in zbx-zvm/tests/" />
             <Row label="MPT tests" value="17/17 pass — trie_basic, proptest, order independence" />
+          </div>
+        </div>
+      </Section>
+
+      {/* JS / API Layer Fixes */}
+      <Section icon={Wrench} title="API Layer Audit — Fixes Applied (2026-05-18)" color="text-orange-400">
+        <p className="text-xs text-muted-foreground mt-2 mb-3">
+          Full audit of the JavaScript simulation & API server layer (Express 5 + Drizzle ORM). All P0 and P1 issues resolved.
+        </p>
+        <div className="space-y-1.5">
+          {[
+            { id: "JS-01", severity: "P0", loc: "analytics.ts:67",   desc: "totalSupply hardcoded to 500M (3× wrong). Fixed → 150M cap per chain spec. circulating now derived from real mined supply formula.", fixed: true },
+            { id: "JS-02", severity: "P0", loc: "blocks.ts:138",      desc: "Math.random() used for tx amounts inside block — same block returned different data on every request. Fixed → seededRandom(height×31+i×7).", fixed: true },
+            { id: "JS-03", severity: "P0", loc: "wallet.ts:38",       desc: "Math.random() for lastSeen — same address returned different last-seen timestamp each call. Fixed → seededRandom(seed) deterministic.", fixed: true },
+            { id: "JS-04", severity: "P0", loc: "chain.ts:69",        desc: "Math.random() for avgBlockTime — network stats changed randomly per request. Fixed → seededRandom(Math.floor(nowSec/60)).", fixed: true },
+            { id: "JS-05", severity: "P0", loc: "blocks.ts:27-38",    desc: "LCG (32-bit linear congruential) used for block hashes — NOT a real cryptographic hash. Fixed → SHA-256 via Node.js crypto.createHash().", fixed: true },
+            { id: "JS-06", severity: "P1", loc: "blocks.ts:11-17",    desc: "Only 5 validator addresses rotated as block producers — 16 validators never proposed blocks. Fixed → 21-validator list matching full active set.", fixed: true },
+            { id: "JS-07", severity: "P1", loc: "analytics.ts",       desc: "No DB-backed supply. circulating used magic number 0.62 with no source. Fixed → formula from FOUNDATION_PREMINE + AMM_POOL_SEED + mined×0.62.", fixed: true },
+            { id: "JS-08", severity: "P1", loc: "wallet.ts",          desc: "Wallet balances derived from addrSeed() only — no persistence. Fixed → accounts table with DB upsert. First access creates record, subsequent updates persist.", fixed: true },
+            { id: "JS-09", severity: "P1", loc: "staking.ts",         desc: "No delegation write APIs. Fixed → POST /staking/delegate and POST /staking/undelegate with staking_delegations table, balance debit, validator stake update.", fixed: true },
+            { id: "JS-10", severity: "P1", loc: "governance.ts",      desc: "No vote write API. Fixed → POST /governance/vote with governance_votes table, duplicate-vote prevention, proposal tally update.", fixed: true },
+            { id: "JS-11", severity: "P1", loc: "transactions.ts",    desc: "No send transaction API. Fixed → POST /transactions/send with chain_transactions table, balance check, account debit/credit, deterministic txHash.", fixed: true },
+            { id: "JS-12", severity: "P1", loc: "—",                  desc: "No global search endpoint. Fixed → GET /search?q= searching blocks, transactions, validators, proposals, pools, addresses in parallel.", fixed: true },
+            { id: "JS-13", severity: "P2", loc: "dex.ts:65",          desc: "DEX swap quote fallback used Math.sin(Date.now()) for live price — value changed 180s period. Kept sin-wave but made seed time-quantized to minute boundary.", fixed: true },
+          ].map(f => (
+            <div key={f.id} className="flex items-start gap-3 p-2.5 rounded-lg border bg-green-500/5 border-green-500/20 text-xs">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-foreground">{f.id}</span>
+                  <span className={cn("font-mono text-[10px] px-1.5 py-0.5 rounded border",
+                    f.severity === "P0" ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                    f.severity === "P1" ? "bg-orange-500/15 text-orange-400 border-orange-500/30" :
+                    "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+                  )}>{f.severity}</span>
+                  <span className="font-mono text-muted-foreground">{f.loc}</span>
+                </div>
+                <p className="text-muted-foreground mt-0.5 leading-relaxed">{f.desc}</p>
+              </div>
+              <span className="flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30">FIXED</span>
+            </div>
+          ))}
+        </div>
+
+        {/* New DB tables */}
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-2">New DB Tables Added</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {[
+              { name: "chain_blocks",        desc: "Persisted block records — height, hash, parentHash, stateRoot, txRoot, validator, gasUsed, reward" },
+              { name: "chain_transactions",  desc: "Real TX persistence — hash, from/to, amount, fee, status, type, gasUsed, data. Populated via POST /transactions/send" },
+              { name: "accounts",            desc: "Wallet state — balance, stakedAmount, nonce, txCount, totalSent/Received. Created on first wallet lookup" },
+              { name: "staking_delegations", desc: "Delegation records — delegator, validator, amount, status (active/unbonding/unbonded), txHash, unbondingAt" },
+              { name: "governance_votes",    desc: "On-chain vote records — proposalId, voterAddress, option, votingPower, txHash. Prevents double-voting" },
+            ].map(t => (
+              <div key={t.name} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/20 border border-border/30">
+                <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0 mt-1" />
+                <div>
+                  <span className="text-xs font-mono text-foreground">{t.name}</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{t.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* New write APIs */}
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-2">New Write APIs</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {[
+              { method: "POST", path: "/api/transactions/send",       desc: "Send ZBX transfer — validates balance, inserts TX record, updates accounts" },
+              { method: "POST", path: "/api/governance/vote",          desc: "Cast vote on proposal — prevents duplicates, updates yes/no/abstain tallies" },
+              { method: "POST", path: "/api/staking/delegate",         desc: "Delegate ZBX to validator — debits account, updates validator totalStaked" },
+              { method: "POST", path: "/api/staking/undelegate",       desc: "Undelegate with 21-day unbonding — creates unbonding record" },
+              { method: "GET",  path: "/api/staking/delegations/:addr",desc: "List all delegations for an address" },
+              { method: "GET",  path: "/api/governance/:id/votes",     desc: "List all votes for a governance proposal" },
+              { method: "GET",  path: "/api/search?q=",                desc: "Global search — blocks, txs, validators, proposals, pools, addresses" },
+            ].map(a => (
+              <div key={a.path} className="flex items-start gap-2 p-2 rounded-lg bg-muted/20 border border-border/30">
+                <span className={cn("text-[9px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5",
+                  a.method === "POST" ? "bg-blue-500/15 text-blue-400 border border-blue-500/20" : "bg-green-500/15 text-green-400 border border-green-500/20"
+                )}>{a.method}</span>
+                <div>
+                  <span className="text-[11px] font-mono text-foreground">{a.path}</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{a.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </Section>

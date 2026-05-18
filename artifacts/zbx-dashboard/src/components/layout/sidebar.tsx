@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Box, ArrowRightLeft, Users, Wallet, Coins, Landmark,
   Code2, ClipboardList, Wrench, Bot, MessageSquare,
   Activity, ChevronRight, Cpu, Repeat2, Droplets, Shield,
-  Vote, BarChart3, Cable, Globe, Trophy
+  Vote, BarChart3, Cable, Globe, Trophy, Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetChainStats } from "@workspace/api-client-react";
@@ -15,6 +15,7 @@ const NAV_SECTIONS = [
     label: "Explorer",
     items: [
       { href: "/",             label: "Overview",        icon: LayoutDashboard },
+      { href: "/search",       label: "Global Search",   icon: Search },
       { href: "/blocks",       label: "Blocks",          icon: Box },
       { href: "/transactions", label: "Transactions",    icon: ArrowRightLeft },
       { href: "/validators",   label: "Validators",      icon: Users },
