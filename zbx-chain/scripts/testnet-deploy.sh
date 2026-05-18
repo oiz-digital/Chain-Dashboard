@@ -121,7 +121,7 @@ if [[ "$mode" == "status" ]]; then
          -H 'Content-Type: application/json' \
          -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
          2>/dev/null | head -1 || echo "(RPC not responding)"
-    echo "  (expect 0x232e = chain_id 8990)"
+    echo "  (expect 0x231e = chain_id 8990)"
     exit 0
 fi
 
@@ -245,8 +245,8 @@ UNIT
         -H 'Content-Type: application/json' \
         -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
         2>/dev/null || echo "")
-    if echo "$RPC_RESP" | grep -q "0x232e"; then
-        echo "  chain_id confirmed: 0x232e (8990)"
+    if echo "${RPC_RESP,,}" | grep -q "0x231e"; then
+        echo "  chain_id confirmed: 0x231e (8990)"
     else
         echo "  WARNING: RPC not responding or unexpected chain_id — check logs"
         echo "  Response: ${RPC_RESP:-<empty>}"

@@ -162,5 +162,5 @@ curl -s -X POST http://localhost:8545 \
 curl -s -X POST http://localhost:18545 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
-# → {"result":"0x232e",...}   (8990 decimal)
+# → {"result":"0x231e",...}   (8990 decimal)
 ```
