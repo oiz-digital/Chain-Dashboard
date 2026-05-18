@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { useMobileNav } from "@/App";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -33,6 +34,7 @@ const roleColors: Record<string, string> = {
 export default function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { close } = useMobileNav();
 
   const initials = user?.displayName
     .split(" ")
@@ -75,7 +77,7 @@ export default function Sidebar() {
                 {items.map(({ path, icon: Icon, label }) => {
                   const active = path === "/" ? location === "/" : location.startsWith(path);
                   return (
-                    <Link key={path} href={path}>
+                    <Link key={path} href={path} onClick={close}>
                       <div
                         data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                         className={cn(
