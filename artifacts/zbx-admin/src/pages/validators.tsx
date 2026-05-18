@@ -4,18 +4,21 @@ import {
   useAdminCreateValidator, useAdminUpdateValidator, useAdminDeleteValidator,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { StepProgress, Step } from "@/components/ui/step-progress";
+import { StatusBanner } from "@/components/ui/status-banner";
+import { cn } from "@/lib/utils";
 
 type Status = "active" | "inactive" | "jailed" | "all";
 
@@ -24,6 +27,12 @@ const statusColor: Record<string, string> = {
   inactive: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   jailed: "bg-red-500/15 text-red-400 border-red-500/30",
 };
+
+const STEPS: Step[] = [
+  { label: "Details", description: "Fill info" },
+  { label: "Saving", description: "Sending" },
+  { label: "Done", description: "Saved" },
+];
 
 export default function Validators() {
   const { toast } = useToast();
@@ -34,6 +43,8 @@ export default function Validators() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ moniker: "", address: "", website: "", description: "", commission: "5.00", status: "active" });
+  const [step, setStep] = useState(0);
+  const [saveError, setSaveError] = useState("");
 
   const { data, isLoading } = useAdminListValidators(
     { page, limit: 10, ...(statusFilter !== "all" ? { status: statusFilter } : {}) },
@@ -46,13 +57,21 @@ export default function Validators() {
   function openCreate() {
     setEditing(null);
     setForm({ moniker: "", address: "", website: "", description: "", commission: "5.00", status: "active" });
+    setStep(0); setSaveError("");
     setDialogOpen(true);
   }
 
   function openEdit(v: any) {
     setEditing(v);
-    setForm({ moniker: v.moniker, address: v.address, website: v.website, description: v.description, commission: v.commission, status: v.status });
+    setForm({ moniker: v.moniker, address: v.address, website: v.website ?? "", description: v.description ?? "", commission: v.commission, status: v.status });
+    setStep(0); setSaveError("");
     setDialogOpen(true);
+  }
+
+  function closeDialog() {
+    if (step === 1) return;
+    setDialogOpen(false);
+    setTimeout(() => { setStep(0); setSaveError(""); }, 300);
   }
 
   function invalidate() {
@@ -60,16 +79,25 @@ export default function Validators() {
   }
 
   function handleSave() {
+    setSaveError("");
+    setStep(1);
+
+    const onSuccess = () => {
+      setStep(2);
+      invalidate();
+      toast({ title: editing ? "Validator updated" : "Validator added" });
+      setTimeout(() => { setDialogOpen(false); setTimeout(() => setStep(0), 300); }, 1000);
+    };
+    const onError = () => {
+      setStep(0);
+      setSaveError("Save failed. Please check your inputs and try again.");
+      toast({ title: "Save failed", variant: "destructive" });
+    };
+
     if (editing) {
-      updateMut.mutate({ id: editing.id, data: { moniker: form.moniker, status: form.status as any, commission: form.commission, website: form.website, description: form.description } }, {
-        onSuccess: () => { toast({ title: "Validator updated" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Update failed", variant: "destructive" }),
-      });
+      updateMut.mutate({ id: editing.id, data: { moniker: form.moniker, status: form.status as any, commission: form.commission, website: form.website, description: form.description } }, { onSuccess, onError });
     } else {
-      createMut.mutate({ data: { address: form.address, moniker: form.moniker, status: form.status as any, commission: form.commission, website: form.website, description: form.description } }, {
-        onSuccess: () => { toast({ title: "Validator added" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Create failed", variant: "destructive" }),
-      });
+      createMut.mutate({ data: { address: form.address, moniker: form.moniker, status: form.status as any, commission: form.commission, website: form.website, description: form.description } }, { onSuccess, onError });
     }
   }
 
@@ -191,66 +219,98 @@ export default function Validators() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={closeDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Validator" : "Add Validator"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            {!editing && (
-              <div className="space-y-1.5">
-                <Label htmlFor="address">Address</Label>
-                <Input id="address" data-testid="input-address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="zbx1val0x..." />
+
+          {/* Step progress */}
+          <StepProgress steps={STEPS} currentStep={step} status={saveError ? "error" : "active"} className="py-2" />
+
+          {saveError && <StatusBanner type="error" title="Save failed" message={saveError} className="mt-1" />}
+
+          {step === 2 ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               </div>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="moniker">Moniker</Label>
-              <Input id="moniker" data-testid="input-moniker" value={form.moniker} onChange={e => setForm(f => ({ ...f, moniker: e.target.value }))} placeholder="Validator name" />
+              <p className="font-medium text-foreground">Validator {editing ? "updated" : "created"} successfully!</p>
+              <p className="text-xs text-muted-foreground">Closing automatically...</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="commission">Commission %</Label>
-                <Input id="commission" data-testid="input-commission" value={form.commission} onChange={e => setForm(f => ({ ...f, commission: e.target.value }))} placeholder="5.00" />
+          ) : (
+            <>
+              <div className="space-y-4 py-2">
+                {!editing && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="address">Address</Label>
+                    <Input id="address" data-testid="input-address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="zbx1val0x..." disabled={step === 1} />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="moniker">Moniker</Label>
+                  <Input id="moniker" data-testid="input-moniker" value={form.moniker} onChange={e => setForm(f => ({ ...f, moniker: e.target.value }))} placeholder="Validator name" disabled={step === 1} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="commission">Commission %</Label>
+                    <Input id="commission" data-testid="input-commission" value={form.commission} onChange={e => setForm(f => ({ ...f, commission: e.target.value }))} placeholder="5.00" disabled={step === 1} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))} disabled={step === 1}>
+                      <SelectTrigger data-testid="select-validator-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="jailed">Jailed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="website">Website</Label>
+                  <Input id="website" data-testid="input-website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://..." disabled={step === 1} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="description">Description</Label>
+                  <Input id="description" data-testid="input-description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="About this validator" disabled={step === 1} />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger data-testid="select-validator-status"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="jailed">Jailed</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={closeDialog} disabled={step === 1}>Cancel</Button>
+                <Button onClick={handleSave} disabled={step === 1} data-testid="button-save-validator">
+                  {step === 1 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Saving...</> : editing ? "Update" : "Create"}
+                </Button>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="website">Website</Label>
-              <Input id="website" data-testid="input-website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Input id="description" data-testid="input-description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="About this validator" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} data-testid="button-save-validator">
-              {editing ? "Update" : "Create"}
-            </Button>
-          </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirm */}
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Validator</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove the validator from the registry.</AlertDialogDescription>
+            <AlertDialogDescription>
+              This will permanently remove the validator from the registry. This action cannot be undone.
+            </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <StatusBanner type="warning" title="Irreversible action" message="All validator data and delegation history will be lost." dismissible={false} />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete">Remove</AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Removing...</> : "Remove Validator"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -4,18 +4,20 @@ import {
   useAdminCreateUser, useAdminUpdateUser, useAdminDeleteUser,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Eye, EyeOff, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { StepProgress, Step } from "@/components/ui/step-progress";
+import { StatusBanner } from "@/components/ui/status-banner";
 
 const roleColor: Record<string, string> = {
   superadmin: "bg-primary/15 text-primary border-primary/30",
@@ -24,6 +26,12 @@ const roleColor: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground",
 };
 
+const STEPS: Step[] = [
+  { label: "Info", description: "Fill details" },
+  { label: "Creating", description: "Sending" },
+  { label: "Done", description: "Active" },
+];
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -31,6 +39,9 @@ export default function AdminUsers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editing, setEditing] = useState<any>(null);
+  const [step, setStep] = useState(0);
+  const [saveError, setSaveError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ username: "", email: "", password: "", displayName: "", role: "viewer", isActive: true });
 
   const { data, isLoading } = useAdminListUsers(
@@ -44,28 +55,42 @@ export default function AdminUsers() {
   function openCreate() {
     setEditing(null);
     setForm({ username: "", email: "", password: "", displayName: "", role: "viewer", isActive: true });
+    setStep(0); setSaveError(""); setShowPassword(false);
     setDialogOpen(true);
   }
 
   function openEdit(u: any) {
     setEditing(u);
     setForm({ username: u.username, email: u.email, password: "", displayName: u.displayName, role: u.role, isActive: u.isActive });
+    setStep(0); setSaveError(""); setShowPassword(false);
     setDialogOpen(true);
+  }
+
+  function closeDialog() {
+    if (step === 1) return;
+    setDialogOpen(false);
+    setTimeout(() => { setStep(0); setSaveError(""); }, 300);
   }
 
   function invalidate() { qc.invalidateQueries({ queryKey: getAdminListUsersQueryKey({}) }); }
 
   function handleSave() {
+    setSaveError("");
+    setStep(1);
+    const onSuccess = () => {
+      setStep(2); invalidate();
+      toast({ title: editing ? "User updated" : "User created" });
+      setTimeout(() => { setDialogOpen(false); setTimeout(() => setStep(0), 300); }, 1000);
+    };
+    const onError = () => {
+      setStep(0);
+      setSaveError("Operation failed. Please check your inputs and try again.");
+      toast({ title: "Failed", variant: "destructive" });
+    };
     if (editing) {
-      updateMut.mutate({ id: editing.id, data: { role: form.role as any, displayName: form.displayName, isActive: form.isActive } }, {
-        onSuccess: () => { toast({ title: "User updated" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Update failed", variant: "destructive" }),
-      });
+      updateMut.mutate({ id: editing.id, data: { role: form.role as any, displayName: form.displayName, isActive: form.isActive } }, { onSuccess, onError });
     } else {
-      createMut.mutate({ data: { username: form.username, email: form.email, password: form.password, role: form.role as any, displayName: form.displayName, isActive: form.isActive } }, {
-        onSuccess: () => { toast({ title: "User created" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Create failed", variant: "destructive" }),
-      });
+      createMut.mutate({ data: { username: form.username, email: form.email, password: form.password, role: form.role as any, displayName: form.displayName, isActive: form.isActive } }, { onSuccess, onError });
     }
   }
 
@@ -170,53 +195,92 @@ export default function AdminUsers() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={closeDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Admin User" : "Create Admin User"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            {!editing && (
-              <>
+
+          <StepProgress steps={STEPS} currentStep={step} status={saveError ? "error" : "active"} className="py-2" />
+          {saveError && <StatusBanner type="error" title="Operation failed" message={saveError} className="mt-1" />}
+
+          {step === 2 ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+              </div>
+              <p className="font-medium text-foreground">User {editing ? "updated" : "created"} successfully!</p>
+              <p className="text-xs text-muted-foreground">Access is now {form.isActive ? "active" : "inactive"}. Closing...</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 py-2">
+                {!editing && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Username</Label>
+                      <Input data-testid="input-username" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="jsmith" disabled={step === 1} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Email</Label>
+                      <Input data-testid="input-email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="jsmith@zbx.io" disabled={step === 1} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Password</Label>
+                      <div className="relative">
+                        <Input
+                          data-testid="input-password"
+                          type={showPassword ? "text" : "password"}
+                          value={form.password}
+                          onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                          placeholder="••••••••"
+                          disabled={step === 1}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(s => !s)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1.5">
-                  <Label>Username</Label>
-                  <Input data-testid="input-username" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="jsmith" />
+                  <Label>Display Name</Label>
+                  <Input data-testid="input-display-name" value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="John Smith" disabled={step === 1} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input data-testid="input-email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="jsmith@zbx.io" />
+                  <Label>Role</Label>
+                  <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))} disabled={step === 1}>
+                    <SelectTrigger data-testid="select-role"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="moderator">Moderator</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Password</Label>
-                  <Input data-testid="input-password" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+                <div className="flex items-center gap-2">
+                  <Switch id="user-active" checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} data-testid="switch-user-active" disabled={step === 1} />
+                  <Label htmlFor="user-active">Active account</Label>
                 </div>
-              </>
-            )}
-            <div className="space-y-1.5">
-              <Label>Display Name</Label>
-              <Input data-testid="input-display-name" value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))} placeholder="John Smith" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
-                <SelectTrigger data-testid="select-role"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="superadmin">Super Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="moderator">Moderator</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch id="user-active" checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} data-testid="switch-user-active" />
-              <Label htmlFor="user-active">Active</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} data-testid="button-save-user">{editing ? "Update" : "Create"}</Button>
-          </DialogFooter>
+
+                {!editing && (
+                  <StatusBanner type="info" title="Credentials will be sent" message="The user should change their password on first login." dismissible={false} />
+                )}
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={closeDialog} disabled={step === 1}>Cancel</Button>
+                <Button onClick={handleSave} disabled={step === 1} data-testid="button-save-user">
+                  {step === 1 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Creating...</> : editing ? "Update" : "Create User"}
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -224,11 +288,16 @@ export default function AdminUsers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Admin User</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove this admin user.</AlertDialogDescription>
+            <AlertDialogDescription>This will permanently remove this admin user's access.</AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <StatusBanner type="warning" title="Access revoked immediately" message="The user will be logged out of all active sessions." dismissible={false} />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete">Remove</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete" disabled={deleteMut.isPending}>
+              {deleteMut.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Removing...</> : "Remove User"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

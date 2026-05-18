@@ -4,18 +4,20 @@ import {
   useAdminCreateToken, useAdminUpdateToken, useAdminDeleteToken,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Coins, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Coins, CheckCircle, XCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { StepProgress, Step } from "@/components/ui/step-progress";
+import { StatusBanner } from "@/components/ui/status-banner";
 
 const typeColor: Record<string, string> = {
   native: "bg-primary/15 text-primary border-primary/30",
@@ -24,6 +26,12 @@ const typeColor: Record<string, string> = {
   wrapped: "bg-amber-500/15 text-amber-400 border-amber-500/30",
 };
 
+const STEPS: Step[] = [
+  { label: "Details", description: "Fill info" },
+  { label: "Saving", description: "Sending" },
+  { label: "Done", description: "Saved" },
+];
+
 export default function Tokens() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -31,6 +39,8 @@ export default function Tokens() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editing, setEditing] = useState<any>(null);
+  const [step, setStep] = useState(0);
+  const [saveError, setSaveError] = useState("");
   const [form, setForm] = useState({
     symbol: "", name: "", type: "erc20", contractAddress: "", decimals: "18",
     totalSupply: "0", circulatingSupply: "0", priceUsd: "0", marketCap: "0",
@@ -48,18 +58,28 @@ export default function Tokens() {
   function openCreate() {
     setEditing(null);
     setForm({ symbol: "", name: "", type: "erc20", contractAddress: "", decimals: "18", totalSupply: "0", circulatingSupply: "0", priceUsd: "0", marketCap: "0", volume24h: "0", holders: "0", description: "", website: "", isActive: true, isVerified: false });
+    setStep(0); setSaveError("");
     setDialogOpen(true);
   }
 
   function openEdit(t: any) {
     setEditing(t);
     setForm({ symbol: t.symbol, name: t.name, type: t.type, contractAddress: t.contractAddress ?? "", decimals: String(t.decimals), totalSupply: t.totalSupply, circulatingSupply: t.circulatingSupply, priceUsd: t.priceUsd, marketCap: t.marketCap, volume24h: t.volume24h, holders: String(t.holders), description: t.description, website: t.website, isActive: t.isActive, isVerified: t.isVerified });
+    setStep(0); setSaveError("");
     setDialogOpen(true);
+  }
+
+  function closeDialog() {
+    if (step === 1) return;
+    setDialogOpen(false);
+    setTimeout(() => { setStep(0); setSaveError(""); }, 300);
   }
 
   function invalidate() { qc.invalidateQueries({ queryKey: getAdminListTokensQueryKey({}) }); }
 
   function handleSave() {
+    setSaveError("");
+    setStep(1);
     const payload = {
       symbol: form.symbol, name: form.name, type: form.type as any,
       contractAddress: form.contractAddress || undefined,
@@ -69,16 +89,20 @@ export default function Tokens() {
       description: form.description, website: form.website,
       isActive: form.isActive, isVerified: form.isVerified,
     };
+    const onSuccess = () => {
+      setStep(2); invalidate();
+      toast({ title: editing ? "Token updated" : "Token added" });
+      setTimeout(() => { setDialogOpen(false); setTimeout(() => setStep(0), 300); }, 1000);
+    };
+    const onError = () => {
+      setStep(0);
+      setSaveError("Save failed. Please check your inputs and try again.");
+      toast({ title: "Save failed", variant: "destructive" });
+    };
     if (editing) {
-      updateMut.mutate({ id: editing.id, data: payload }, {
-        onSuccess: () => { toast({ title: "Token updated" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Update failed", variant: "destructive" }),
-      });
+      updateMut.mutate({ id: editing.id, data: payload }, { onSuccess, onError });
     } else {
-      createMut.mutate({ data: payload }, {
-        onSuccess: () => { toast({ title: "Token added" }); setDialogOpen(false); invalidate(); },
-        onError: () => toast({ title: "Create failed", variant: "destructive" }),
-      });
+      createMut.mutate({ data: payload }, { onSuccess, onError });
     }
   }
 
@@ -183,73 +207,91 @@ export default function Tokens() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={closeDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Token" : "Add Token"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Symbol</Label>
-                <Input data-testid="input-symbol" value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))} placeholder="ZBX" disabled={!!editing} />
+
+          <StepProgress steps={STEPS} currentStep={step} status={saveError ? "error" : "active"} className="py-2" />
+          {saveError && <StatusBanner type="error" title="Save failed" message={saveError} className="mt-1" />}
+
+          {step === 2 ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Name</Label>
-                <Input data-testid="input-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Zebvix Chain" />
-              </div>
+              <p className="font-medium text-foreground">Token {editing ? "updated" : "added"} successfully!</p>
+              <p className="text-xs text-muted-foreground">Closing automatically...</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Type</Label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
-                  <SelectTrigger data-testid="select-token-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="native">Native</SelectItem>
-                    <SelectItem value="erc20">ERC-20</SelectItem>
-                    <SelectItem value="lp">LP</SelectItem>
-                    <SelectItem value="wrapped">Wrapped</SelectItem>
-                  </SelectContent>
-                </Select>
+          ) : (
+            <>
+              <div className="space-y-4 py-2 max-h-[55vh] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Symbol</Label>
+                    <Input data-testid="input-symbol" value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))} placeholder="ZBX" disabled={!!editing || step === 1} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Name</Label>
+                    <Input data-testid="input-name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Zebvix Chain" disabled={step === 1} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Type</Label>
+                    <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))} disabled={step === 1}>
+                      <SelectTrigger data-testid="select-token-type"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="native">Native</SelectItem>
+                        <SelectItem value="erc20">ERC-20</SelectItem>
+                        <SelectItem value="lp">LP</SelectItem>
+                        <SelectItem value="wrapped">Wrapped</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Decimals</Label>
+                    <Input data-testid="input-decimals" value={form.decimals} onChange={e => setForm(f => ({ ...f, decimals: e.target.value }))} placeholder="18" disabled={step === 1} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Contract Address</Label>
+                  <Input data-testid="input-contract" value={form.contractAddress} onChange={e => setForm(f => ({ ...f, contractAddress: e.target.value }))} placeholder="0x..." disabled={step === 1} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Price (USD)</Label>
+                    <Input data-testid="input-price" value={form.priceUsd} onChange={e => setForm(f => ({ ...f, priceUsd: e.target.value }))} disabled={step === 1} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Market Cap</Label>
+                    <Input data-testid="input-marketcap" value={form.marketCap} onChange={e => setForm(f => ({ ...f, marketCap: e.target.value }))} disabled={step === 1} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Website</Label>
+                  <Input data-testid="input-website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://..." disabled={step === 1} />
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <Switch id="active" checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} data-testid="switch-active" disabled={step === 1} />
+                    <Label htmlFor="active">Active</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch id="verified" checked={form.isVerified} onCheckedChange={v => setForm(f => ({ ...f, isVerified: v }))} data-testid="switch-verified" disabled={step === 1} />
+                    <Label htmlFor="verified">Verified</Label>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Decimals</Label>
-                <Input data-testid="input-decimals" value={form.decimals} onChange={e => setForm(f => ({ ...f, decimals: e.target.value }))} placeholder="18" />
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={closeDialog} disabled={step === 1}>Cancel</Button>
+                <Button onClick={handleSave} disabled={step === 1} data-testid="button-save-token">
+                  {step === 1 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : editing ? "Update" : "Create"}
+                </Button>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Contract Address</Label>
-              <Input data-testid="input-contract" value={form.contractAddress} onChange={e => setForm(f => ({ ...f, contractAddress: e.target.value }))} placeholder="0x..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Price (USD)</Label>
-                <Input data-testid="input-price" value={form.priceUsd} onChange={e => setForm(f => ({ ...f, priceUsd: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Market Cap</Label>
-                <Input data-testid="input-marketcap" value={form.marketCap} onChange={e => setForm(f => ({ ...f, marketCap: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Website</Label>
-              <Input data-testid="input-website" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://..." />
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch id="active" checked={form.isActive} onCheckedChange={v => setForm(f => ({ ...f, isActive: v }))} data-testid="switch-active" />
-                <Label htmlFor="active">Active</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch id="verified" checked={form.isVerified} onCheckedChange={v => setForm(f => ({ ...f, isVerified: v }))} data-testid="switch-verified" />
-                <Label htmlFor="verified">Verified</Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} data-testid="button-save-token">{editing ? "Update" : "Create"}</Button>
-          </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -259,9 +301,14 @@ export default function Tokens() {
             <AlertDialogTitle>Remove Token</AlertDialogTitle>
             <AlertDialogDescription>This will permanently remove the token from the registry.</AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-6 pb-2">
+            <StatusBanner type="warning" title="Irreversible action" message="Token data and all associated market history will be deleted." dismissible={false} />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete">Remove</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete" disabled={deleteMut.isPending}>
+              {deleteMut.isPending ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Removing...</> : "Remove Token"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
