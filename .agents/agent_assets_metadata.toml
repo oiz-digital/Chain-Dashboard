@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "xFKVukQiBde-hdhb0b982"
+uri = "file://artifacts/zbx-mobile/assets/images/icon.png"
+type = "image"
+title = "zbx chain mobile icon"

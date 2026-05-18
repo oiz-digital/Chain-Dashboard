@@ -14,7 +14,9 @@ import {
   X,
   Code2,
   ClipboardList,
-  Wrench
+  Wrench,
+  Bot,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +31,8 @@ const NAV_ITEMS = [
   { href: "/chain-code", label: "Chain Code", icon: Code2 },
   { href: "/audit", label: "Feature Audit", icon: ClipboardList },
   { href: "/patches", label: "Gap Fixes", icon: Wrench },
+  { href: "/ai-features", label: "AI Features", icon: Bot },
+  { href: "/ai-agent", label: "AI Agent Chat", icon: MessageSquare },
 ];
 
 export function Sidebar() {

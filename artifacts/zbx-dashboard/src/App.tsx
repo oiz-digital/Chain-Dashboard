@@ -20,6 +20,8 @@ import Defi from "@/pages/defi";
 import ChainCode from "@/pages/chain-code";
 import Audit from "@/pages/audit";
 import Patches from "@/pages/patches";
+import AIFeatures from "@/pages/ai-features";
+import AIAgent from "@/pages/ai-agent";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,8 @@ function Router() {
         <Route path="/chain-code" component={ChainCode} />
         <Route path="/audit" component={Audit} />
         <Route path="/patches" component={Patches} />
+        <Route path="/ai-features" component={AIFeatures} />
+        <Route path="/ai-agent" component={AIAgent} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

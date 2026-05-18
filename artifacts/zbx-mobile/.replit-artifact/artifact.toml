@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/zbx-mobile/"
+title = "ZBX Chain Mobile"
+version = "1.0.0"
+id = "artifacts/zbx-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/zbx-mobile/" ]
+localPort = 23178
+
+[services.development]
+run = "pnpm --filter @workspace/zbx-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zbx-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/zbx-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "23178"
+BASE_PATH = "/zbx-mobile/"
