@@ -11,7 +11,8 @@ import {
   Search,
   Activity,
   Menu,
-  X
+  X,
+  Code2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/wallet", label: "Wallet Lookup", icon: Wallet },
   { href: "/tokens", label: "Tokens", icon: Coins },
   { href: "/defi", label: "DeFi", icon: Landmark },
+  { href: "/chain-code", label: "Chain Code", icon: Code2 },
 ];
 
 export function Sidebar() {

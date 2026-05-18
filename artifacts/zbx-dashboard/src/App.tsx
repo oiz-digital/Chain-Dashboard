@@ -17,6 +17,7 @@ import ValidatorDetail from "@/pages/validator-detail";
 import Wallet from "@/pages/wallet";
 import Tokens from "@/pages/tokens";
 import Defi from "@/pages/defi";
+import ChainCode from "@/pages/chain-code";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/wallet" component={Wallet} />
         <Route path="/tokens" component={Tokens} />
         <Route path="/defi" component={Defi} />
+        <Route path="/chain-code" component={ChainCode} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
