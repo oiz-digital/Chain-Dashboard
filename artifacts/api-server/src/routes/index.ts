@@ -20,6 +20,7 @@ import adminFeatureFlagsRouter from "./admin-feature-flags";
 import adminInvitesRouter from "./admin-invites";
 import chatRouter from "./chat";
 import searchRouter from "./search";
+import testnetRouter from "./testnet";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(adminAppUsersRouter);
 router.use(adminFeatureFlagsRouter);
 router.use(adminInvitesRouter);
 router.use(chatRouter);
+router.use(testnetRouter);
 
 export default router;

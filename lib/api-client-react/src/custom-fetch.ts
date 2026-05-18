@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _selectedNetwork: string = "mainnet";
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -27,6 +28,18 @@ let _authTokenGetter: AuthTokenGetter | null = null;
  */
 export function setBaseUrl(url: string | null): void {
   _baseUrl = url ? url.replace(/\/+$/, "") : null;
+}
+
+/**
+ * Set the active network (mainnet | testnet). All subsequent API requests
+ * will include `?network=<value>` as a query parameter.
+ */
+export function setSelectedNetwork(n: string): void {
+  _selectedNetwork = n;
+}
+
+export function getSelectedNetwork(): string {
+  return _selectedNetwork;
 }
 
 /**
@@ -70,6 +83,17 @@ function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input === "string") return absolute;
   if (isUrl(input)) return new URL(absolute);
   return new Request(absolute, input as Request);
+}
+
+function appendNetworkParam(input: RequestInfo | URL): RequestInfo | URL {
+  if (_selectedNetwork === "mainnet") return input;
+  const url = resolveUrl(input);
+  if (!url.startsWith("/") && !url.startsWith("http")) return input;
+  const separator = url.includes("?") ? "&" : "?";
+  const newUrl = `${url}${separator}network=${encodeURIComponent(_selectedNetwork)}`;
+  if (typeof input === "string") return newUrl;
+  if (isUrl(input)) return new URL(newUrl);
+  return new Request(newUrl, input as Request);
 }
 
 function resolveUrl(input: RequestInfo | URL): string {
@@ -327,6 +351,7 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
+  input = appendNetworkParam(input);
   const { responseType = "auto", headers: headersInit, ...init } = options;
 
   const method = resolveMethod(input, init.method);

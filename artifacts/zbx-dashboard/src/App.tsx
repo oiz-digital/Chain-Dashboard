@@ -4,6 +4,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { NetworkProvider } from "@/contexts/NetworkContext";
 import NotFound from "@/pages/not-found";
 
 // Pages
@@ -31,6 +32,7 @@ import Patches from "@/pages/patches";
 import AIFeatures from "@/pages/ai-features";
 import AIAgent from "@/pages/ai-agent";
 import SearchPage from "@/pages/search";
+import TestnetFaucet from "@/pages/testnet-faucet";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +64,7 @@ function Router() {
         <Route path="/ai-features" component={AIFeatures} />
         <Route path="/ai-agent" component={AIAgent} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/testnet-faucet" component={TestnetFaucet} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
@@ -71,12 +74,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <NetworkProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </NetworkProvider>
     </QueryClientProvider>
   );
 }

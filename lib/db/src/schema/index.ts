@@ -18,3 +18,4 @@ export * from "./chain_blocks";
 export * from "./chain_transactions";
 export * from "./accounts";
 export * from "./staking_delegations";
+export * from "./testnet_faucet_requests";

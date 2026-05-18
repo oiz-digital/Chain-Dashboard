@@ -6,6 +6,14 @@ import {
   ListBlocksResponse,
   GetBlockResponse,
 } from "@workspace/api-zod";
+import {
+  type NetworkConfig,
+  MAINNET_CONFIG,
+  TESTNET_VALIDATORS,
+  TESTNET_MONIKERS,
+  getCurrentHeightForNetwork,
+  parseNetwork,
+} from "./network-config";
 
 const router: IRouter = Router();
 
@@ -65,10 +73,12 @@ export function hashFromHeight(height: number, salt: string | number = 0): strin
   return deterministicHash(`zbx:block:${height}:${salt}:chain8989`);
 }
 
+export function hashFromHeightForNetwork(height: number, cfg: NetworkConfig, salt: string | number = 0): string {
+  return deterministicHash(`zbx:block:${height}:${salt}:chain${cfg.chainId}`);
+}
+
 export function getCurrentHeight(): number {
-  const startTime = new Date("2025-01-01T00:00:00Z").getTime();
-  const elapsed   = Math.floor((Date.now() - startTime) / 5000);
-  return 2_847_312 + elapsed;
+  return getCurrentHeightForNetwork(MAINNET_CONFIG);
 }
 
 function seededRandom(seed: number): number {
@@ -77,47 +87,56 @@ function seededRandom(seed: number): number {
 }
 
 export function blockData(height: number) {
-  const validatorIdx = height % VALIDATORS.length;
-  const validator    = VALIDATORS[validatorIdx];
+  return blockDataForNetwork(height, MAINNET_CONFIG);
+}
+
+export function blockDataForNetwork(height: number, cfg: NetworkConfig) {
+  const validators   = cfg.name === "testnet" ? TESTNET_VALIDATORS : VALIDATORS;
+  const validatorIdx = height % validators.length;
+  const validator    = validators[validatorIdx];
   const txCount      = Math.max(0, Math.floor(5 + Math.sin(height / 3) * 4 + (height % 7)));
   const gasUsed      = txCount * 21000 + Math.floor(height % 500) * 1000;
-  const gasLimit     = 30_000_000;
+  const gasLimit     = cfg.gasLimit;
   const size         = 1200 + txCount * 250 + (height % 300);
-  const secondsAgo   = (getCurrentHeight() - height) * 5;
+  const currentH     = getCurrentHeightForNetwork(cfg);
+  const secondsAgo   = (currentH - height) * cfg.blockTimeSeconds;
   const timestamp    = new Date(Date.now() - secondsAgo * 1000).toISOString();
+  const reward       = height < cfg.halvingInterval ? cfg.blockReward.toString()
+                     : (cfg.blockReward / 2).toString();
 
   return {
     height,
-    hash:       hashFromHeight(height),
-    parentHash: hashFromHeight(height - 1),
+    hash:       hashFromHeightForNetwork(height, cfg),
+    parentHash: hashFromHeightForNetwork(height - 1, cfg),
     timestamp,
     txCount,
     validator,
     gasUsed,
     gasLimit,
     size,
-    reward:    "3",
-    stateRoot: hashFromHeight(height, "state"),
-    txHash:    hashFromHeight(height, "txroot"),
+    reward,
+    stateRoot: hashFromHeightForNetwork(height, cfg, "state"),
+    txHash:    hashFromHeightForNetwork(height, cfg, "txroot"),
   };
 }
 
 router.get("/blocks", async (req, res): Promise<void> => {
+  const cfg   = parseNetwork(req);
   const query = ListBlocksQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const page          = query.data.page  ?? 1;
-  const limit         = Math.min(query.data.limit ?? 20, 50);
-  const latestHeight  = getCurrentHeight();
-  const startHeight   = latestHeight - (page - 1) * limit;
+  const page         = query.data.page  ?? 1;
+  const limit        = Math.min(query.data.limit ?? 20, 50);
+  const latestHeight = getCurrentHeightForNetwork(cfg);
+  const startHeight  = latestHeight - (page - 1) * limit;
 
   const blocks = [];
   for (let i = 0; i < limit; i++) {
     const h = startHeight - i;
     if (h < 1) break;
-    const b = blockData(h);
+    const b = blockDataForNetwork(h, cfg);
     blocks.push({
       height:    b.height,
       hash:      b.hash,
@@ -135,6 +154,7 @@ router.get("/blocks", async (req, res): Promise<void> => {
 });
 
 router.get("/blocks/:height", async (req, res): Promise<void> => {
+  const cfg    = parseNetwork(req);
   const raw    = Array.isArray(req.params.height) ? req.params.height[0] : req.params.height;
   const params = GetBlockParams.safeParse({ height: parseInt(raw, 10) });
   if (!params.success) {
@@ -142,26 +162,27 @@ router.get("/blocks/:height", async (req, res): Promise<void> => {
     return;
   }
 
-  const height        = params.data.height;
-  const latestHeight  = getCurrentHeight();
+  const height       = params.data.height;
+  const latestHeight = getCurrentHeightForNetwork(cfg);
   if (height < 1 || height > latestHeight) {
     res.status(404).json({ error: "Block not found" });
     return;
   }
 
-  const b   = blockData(height);
+  const b        = blockDataForNetwork(height, cfg);
+  const validators = cfg.name === "testnet" ? TESTNET_VALIDATORS : VALIDATORS;
   const txs = [];
   for (let i = 0; i < b.txCount; i++) {
-    const txHash = deterministicHash(`zbx:tx:${height}:${i}:chain8989`);
-    const types  = ["transfer", "stake", "delegate", "contract", "reward"] as const;
-    const type   = types[i % types.length];
+    const txHash  = deterministicHash(`zbx:tx:${height}:${i}:chain${cfg.chainId}`);
+    const types   = ["transfer", "stake", "delegate", "contract", "reward"] as const;
+    const type    = types[i % types.length];
     const amtSeed = height * 31 + i * 7;
     txs.push({
       hash:        txHash,
       blockHeight: height,
       timestamp:   b.timestamp,
-      from:        VALIDATORS[i % VALIDATORS.length],
-      to:          VALIDATORS[(i + 2) % VALIDATORS.length],
+      from:        validators[i % validators.length],
+      to:          validators[(i + 2) % validators.length],
       amount:      ((amtSeed % 10000) * 0.0047 + 0.001).toFixed(6),
       fee:         "0.001",
       status:      "success" as const,
