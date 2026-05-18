@@ -18,6 +18,7 @@ import Wallet from "@/pages/wallet";
 import Tokens from "@/pages/tokens";
 import Defi from "@/pages/defi";
 import ChainCode from "@/pages/chain-code";
+import Audit from "@/pages/audit";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/tokens" component={Tokens} />
         <Route path="/defi" component={Defi} />
         <Route path="/chain-code" component={ChainCode} />
+        <Route path="/audit" component={Audit} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

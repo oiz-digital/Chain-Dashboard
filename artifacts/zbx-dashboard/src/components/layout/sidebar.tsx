@@ -12,7 +12,8 @@ import {
   Activity,
   Menu,
   X,
-  Code2
+  Code2,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/tokens", label: "Tokens", icon: Coins },
   { href: "/defi", label: "DeFi", icon: Landmark },
   { href: "/chain-code", label: "Chain Code", icon: Code2 },
+  { href: "/audit", label: "Feature Audit", icon: ClipboardList },
 ];
 
 export function Sidebar() {
