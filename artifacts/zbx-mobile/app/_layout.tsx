@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { AppAuthProvider } from "@/contexts/AppAuthContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,31 +24,11 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="send"
-        options={{
-          presentation: "modal",
-          animation: "slide_from_bottom",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="receive"
-        options={{
-          presentation: "modal",
-          animation: "slide_from_bottom",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="staking"
-        options={{
-          presentation: "card",
-          animation: "slide_from_right",
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen name="(auth)"  options={{ headerShown: false, animation: "fade" }} />
+      <Stack.Screen name="(tabs)"  options={{ headerShown: false }} />
+      <Stack.Screen name="send"    options={{ presentation: "modal",  animation: "slide_from_bottom", headerShown: false }} />
+      <Stack.Screen name="receive" options={{ presentation: "modal",  animation: "slide_from_bottom", headerShown: false }} />
+      <Stack.Screen name="staking" options={{ presentation: "card",   animation: "slide_from_right",  headerShown: false }} />
     </Stack>
   );
 }
@@ -72,13 +53,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <WalletProvider>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </WalletProvider>
+          <AppAuthProvider>
+            <WalletProvider>
+              <GestureHandlerRootView>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </WalletProvider>
+          </AppAuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

@@ -14,6 +14,10 @@ import governanceRouter from "./governance";
 import analyticsRouter from "./analytics";
 import ibcRouter from "./ibc";
 import leaderboardRouter from "./leaderboard";
+import authRouter from "./auth";
+import adminAppUsersRouter from "./admin-app-users";
+import adminFeatureFlagsRouter from "./admin-feature-flags";
+import adminInvitesRouter from "./admin-invites";
 
 const router: IRouter = Router();
 
@@ -32,5 +36,9 @@ router.use(governanceRouter);
 router.use(analyticsRouter);
 router.use(ibcRouter);
 router.use(leaderboardRouter);
+router.use(authRouter);
+router.use(adminAppUsersRouter);
+router.use(adminFeatureFlagsRouter);
+router.use(adminInvitesRouter);
 
 export default router;

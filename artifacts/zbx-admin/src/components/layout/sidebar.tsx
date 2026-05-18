@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Shield, Coins, Brain, Users, Settings,
-  ChevronRight, Activity, LogOut, User
+  ChevronRight, Activity, LogOut, User, Smartphone, Zap, Link2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -12,12 +12,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const nav = [
-  { path: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { path: "/validators", icon: Shield, label: "Validators" },
-  { path: "/tokens", icon: Coins, label: "Token Registry" },
-  { path: "/ai-models", icon: Brain, label: "AI Models" },
-  { path: "/users", icon: Users, label: "Admin Users" },
-  { path: "/settings", icon: Settings, label: "System Settings" },
+  { path: "/",             icon: LayoutDashboard, label: "Dashboard",       section: "Protocol" },
+  { path: "/validators",   icon: Shield,          label: "Validators",      section: "Protocol" },
+  { path: "/tokens",       icon: Coins,           label: "Token Registry",  section: "Protocol" },
+  { path: "/ai-models",    icon: Brain,           label: "AI Models",       section: "Protocol" },
+  { path: "/users",        icon: Users,           label: "Admin Users",     section: "Protocol" },
+  { path: "/settings",     icon: Settings,        label: "System Settings", section: "Protocol" },
+  { path: "/app-users",    icon: Smartphone,      label: "App Users",       section: "User Management" },
+  { path: "/feature-flags",icon: Zap,             label: "Feature Flags",   section: "User Management" },
+  { path: "/invites",      icon: Link2,           label: "Invite Codes",    section: "User Management" },
 ];
 
 const roleColors: Record<string, string> = {
@@ -62,26 +65,35 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <p className="px-2 py-1 text-xs text-muted-foreground uppercase tracking-widest mb-2">Navigation</p>
-        {nav.map(({ path, icon: Icon, label }) => {
-          const active = path === "/" ? location === "/" : location.startsWith(path);
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {["Protocol", "User Management"].map(section => {
+          const items = nav.filter(n => n.section === section);
           return (
-            <Link key={path} href={path}>
-              <div
-                data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm cursor-pointer transition-all group",
-                  active
-                    ? "bg-primary/15 text-primary font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <Icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground group-hover:text-sidebar-accent-foreground")} />
-                <span className="flex-1">{label}</span>
-                {active && <ChevronRight className="w-3 h-3 text-primary" />}
+            <div key={section} className="mb-4">
+              <p className="px-2 py-1 text-xs text-muted-foreground uppercase tracking-widest mb-1">{section}</p>
+              <div className="space-y-0.5">
+                {items.map(({ path, icon: Icon, label }) => {
+                  const active = path === "/" ? location === "/" : location.startsWith(path);
+                  return (
+                    <Link key={path} href={path}>
+                      <div
+                        data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm cursor-pointer transition-all group",
+                          active
+                            ? "bg-primary/15 text-primary font-medium"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        )}
+                      >
+                        <Icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground group-hover:text-sidebar-accent-foreground")} />
+                        <span className="flex-1">{label}</span>
+                        {active && <ChevronRight className="w-3 h-3 text-primary" />}
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
-            </Link>
+            </div>
           );
         })}
       </nav>

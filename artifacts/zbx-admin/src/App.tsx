@@ -11,6 +11,9 @@ import Tokens from "@/pages/tokens";
 import AiModels from "@/pages/ai-models";
 import AdminUsers from "@/pages/users";
 import SystemSettings from "@/pages/settings";
+import AppUsers from "@/pages/app-users";
+import FeatureFlags from "@/pages/feature-flags";
+import Invites from "@/pages/invites";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -48,6 +51,9 @@ function ProtectedLayout() {
             <Route path="/ai-models" component={AiModels} />
             <Route path="/users" component={AdminUsers} />
             <Route path="/settings" component={SystemSettings} />
+            <Route path="/app-users" component={AppUsers} />
+            <Route path="/feature-flags" component={FeatureFlags} />
+            <Route path="/invites" component={Invites} />
             <Route component={NotFound} />
           </Switch>
         </div>
