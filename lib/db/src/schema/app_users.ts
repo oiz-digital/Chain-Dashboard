@@ -7,6 +7,8 @@ export const appUsersTable = pgTable("app_users", {
   displayName:            varchar("display_name", { length: 100 }),
   chatId:                 varchar("chat_id", { length: 64 }).unique(),
   publicKey:              text("public_key"),
+  walletAddress:          varchar("wallet_address", { length: 64 }).unique(),
+  walletRegisteredAt:     timestamp("wallet_registered_at"),
   isActive:               boolean("is_active").notNull().default(true),
   isEmailVerified:        boolean("is_email_verified").notNull().default(false),
   emailVerificationToken: text("email_verification_token"),

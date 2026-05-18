@@ -9,16 +9,21 @@ export interface KeyPair {
 }
 
 function toBase64(arr: Uint8Array): string {
-  return Buffer.from(arr).toString("base64");
+  let binary = "";
+  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
+  return btoa(binary);
 }
 function fromBase64(str: string): Uint8Array {
-  return new Uint8Array(Buffer.from(str, "base64"));
+  const binary = atob(str);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
 }
 function toUtf8(arr: Uint8Array): string {
-  return Buffer.from(arr).toString("utf8");
+  return new TextDecoder().decode(arr);
 }
 function fromUtf8(str: string): Uint8Array {
-  return new Uint8Array(Buffer.from(str, "utf8"));
+  return new TextEncoder().encode(str);
 }
 
 export async function getOrCreateKeyPair(): Promise<KeyPair> {

@@ -16,7 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { AppAuthProvider } from "@/contexts/AppAuthContext";
-import { ChatCryptoProvider } from "@/contexts/ChatCryptoContext";
+import { ChainChatProvider } from "@/contexts/ChainChatContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,7 +56,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppAuthProvider>
-            <ChatCryptoProvider>
+            <ChainChatProvider>
               <WalletProvider>
                 <GestureHandlerRootView>
                   <KeyboardProvider>
@@ -64,7 +64,7 @@ export default function RootLayout() {
                   </KeyboardProvider>
                 </GestureHandlerRootView>
               </WalletProvider>
-            </ChatCryptoProvider>
+            </ChainChatProvider>
           </AppAuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
