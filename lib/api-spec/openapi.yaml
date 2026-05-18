@@ -3,20 +3,33 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Zebvix Chain (ZBX) Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: chain
+    description: Chain-level info and stats
+  - name: blocks
+    description: Block explorer
+  - name: transactions
+    description: Transaction explorer
+  - name: validators
+    description: Validators and staking
+  - name: wallet
+    description: Wallet and address lookup
+  - name: tokens
+    description: ZBX token economics
+  - name: defi
+    description: DeFi and liquidity stats
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,240 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /chain/info:
+    get:
+      operationId: getChainInfo
+      tags: [chain]
+      summary: Chain overview info
+      responses:
+        "200":
+          description: Chain info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainInfo"
+
+  /chain/stats:
+    get:
+      operationId: getChainStats
+      tags: [chain]
+      summary: Live chain statistics
+      responses:
+        "200":
+          description: Chain stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainStats"
+
+  /blocks:
+    get:
+      operationId: listBlocks
+      tags: [blocks]
+      summary: List recent blocks
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of blocks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockList"
+
+  /blocks/{height}:
+    get:
+      operationId: getBlock
+      tags: [blocks]
+      summary: Get block by height
+      parameters:
+        - name: height
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Block detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockDetail"
+        "404":
+          description: Block not found
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List recent transactions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+
+  /transactions/{hash}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get transaction by hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionDetail"
+        "404":
+          description: Transaction not found
+
+  /validators:
+    get:
+      operationId: listValidators
+      tags: [validators]
+      summary: List all validators
+      responses:
+        "200":
+          description: List of validators
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Validator"
+
+  /validators/{address}:
+    get:
+      operationId: getValidator
+      tags: [validators]
+      summary: Get validator detail
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Validator detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidatorDetail"
+        "404":
+          description: Validator not found
+
+  /wallet/{address}:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get wallet info by address
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletInfo"
+        "404":
+          description: Address not found
+
+  /wallet/{address}/transactions:
+    get:
+      operationId: getWalletTransactions
+      tags: [wallet]
+      summary: Get recent transactions for a wallet address (last 20)
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+
+  /tokens/stats:
+    get:
+      operationId: getTokenStats
+      tags: [tokens]
+      summary: ZBX token economics and supply stats
+      responses:
+        "200":
+          description: Token stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenStats"
+
+  /defi/stats:
+    get:
+      operationId: getDefiStats
+      tags: [defi]
+      summary: DeFi protocol overview stats
+      responses:
+        "200":
+          description: DeFi stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefiStats"
+
+  /chain/activity:
+    get:
+      operationId: getChainActivity
+      tags: [chain]
+      summary: Block-by-block tx count for chart (last 24 blocks)
+      responses:
+        "200":
+          description: Activity data points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityPoint"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +278,481 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ChainInfo:
+      type: object
+      required:
+        - chainId
+        - chainName
+        - token
+        - decimals
+        - blockTime
+        - latestHeight
+        - totalSupplyCap
+        - minValidatorStake
+        - minDelegatorStake
+        - consensus
+        - networkId
+      properties:
+        chainId:
+          type: integer
+        chainName:
+          type: string
+        token:
+          type: string
+        decimals:
+          type: integer
+        blockTime:
+          type: integer
+        latestHeight:
+          type: integer
+        totalSupplyCap:
+          type: string
+        minValidatorStake:
+          type: string
+        minDelegatorStake:
+          type: string
+        consensus:
+          type: string
+        networkId:
+          type: string
+
+    ChainStats:
+      type: object
+      required:
+        - latestHeight
+        - tps
+        - avgBlockTime
+        - totalTransactions
+        - totalAddresses
+        - activeValidators
+        - totalStaked
+        - circulatingSupply
+        - marketCap
+        - zbxPriceUsd
+      properties:
+        latestHeight:
+          type: integer
+        tps:
+          type: number
+        avgBlockTime:
+          type: number
+        totalTransactions:
+          type: integer
+        totalAddresses:
+          type: integer
+        activeValidators:
+          type: integer
+        totalStaked:
+          type: string
+        circulatingSupply:
+          type: string
+        marketCap:
+          type: string
+        zbxPriceUsd:
+          type: number
+
+    Block:
+      type: object
+      required:
+        - height
+        - hash
+        - timestamp
+        - txCount
+        - validator
+        - gasUsed
+        - gasLimit
+        - size
+        - reward
+      properties:
+        height:
+          type: integer
+        hash:
+          type: string
+        timestamp:
+          type: string
+        txCount:
+          type: integer
+        validator:
+          type: string
+        gasUsed:
+          type: integer
+        gasLimit:
+          type: integer
+        size:
+          type: integer
+        reward:
+          type: string
+
+    BlockList:
+      type: object
+      required: [blocks, total, page, limit]
+      properties:
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Block"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    BlockDetail:
+      type: object
+      required:
+        - height
+        - hash
+        - parentHash
+        - timestamp
+        - txCount
+        - validator
+        - gasUsed
+        - gasLimit
+        - size
+        - reward
+        - stateRoot
+        - txHash
+      properties:
+        height:
+          type: integer
+        hash:
+          type: string
+        parentHash:
+          type: string
+        timestamp:
+          type: string
+        txCount:
+          type: integer
+        validator:
+          type: string
+        gasUsed:
+          type: integer
+        gasLimit:
+          type: integer
+        size:
+          type: integer
+        reward:
+          type: string
+        stateRoot:
+          type: string
+        txHash:
+          type: string
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+
+    Transaction:
+      type: object
+      required:
+        - hash
+        - blockHeight
+        - timestamp
+        - from
+        - to
+        - amount
+        - fee
+        - status
+        - type
+      properties:
+        hash:
+          type: string
+        blockHeight:
+          type: integer
+        timestamp:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        amount:
+          type: string
+        fee:
+          type: string
+        status:
+          type: string
+          enum: [success, failed, pending]
+        type:
+          type: string
+          enum: [transfer, stake, unstake, delegate, contract, reward]
+
+    TransactionList:
+      type: object
+      required: [transactions, total, page, limit]
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    TransactionDetail:
+      type: object
+      required:
+        - hash
+        - blockHeight
+        - timestamp
+        - from
+        - to
+        - amount
+        - fee
+        - status
+        - type
+        - nonce
+        - gasLimit
+        - gasUsed
+        - gasPrice
+        - data
+        - confirmations
+      properties:
+        hash:
+          type: string
+        blockHeight:
+          type: integer
+        timestamp:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        amount:
+          type: string
+        fee:
+          type: string
+        status:
+          type: string
+          enum: [success, failed, pending]
+        type:
+          type: string
+          enum: [transfer, stake, unstake, delegate, contract, reward]
+        nonce:
+          type: integer
+        gasLimit:
+          type: integer
+        gasUsed:
+          type: integer
+        gasPrice:
+          type: string
+        data:
+          type: string
+        confirmations:
+          type: integer
+
+    Validator:
+      type: object
+      required:
+        - address
+        - moniker
+        - status
+        - votingPower
+        - commission
+        - totalStaked
+        - delegators
+        - uptime
+        - blocksProposed
+        - rank
+      properties:
+        address:
+          type: string
+        moniker:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, jailed]
+        votingPower:
+          type: string
+        commission:
+          type: number
+        totalStaked:
+          type: string
+        delegators:
+          type: integer
+        uptime:
+          type: number
+        blocksProposed:
+          type: integer
+        rank:
+          type: integer
+
+    ValidatorDetail:
+      type: object
+      required:
+        - address
+        - moniker
+        - status
+        - votingPower
+        - commission
+        - totalStaked
+        - selfStaked
+        - delegatedStaked
+        - delegators
+        - uptime
+        - blocksProposed
+        - blocksSkipped
+        - rank
+        - website
+        - description
+        - joinedAt
+        - recentBlocks
+      properties:
+        address:
+          type: string
+        moniker:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, jailed]
+        votingPower:
+          type: string
+        commission:
+          type: number
+        totalStaked:
+          type: string
+        selfStaked:
+          type: string
+        delegatedStaked:
+          type: string
+        delegators:
+          type: integer
+        uptime:
+          type: number
+        blocksProposed:
+          type: integer
+        blocksSkipped:
+          type: integer
+        rank:
+          type: integer
+        website:
+          type: string
+        description:
+          type: string
+        joinedAt:
+          type: string
+        recentBlocks:
+          type: array
+          items:
+            type: integer
+
+    WalletInfo:
+      type: object
+      required:
+        - address
+        - balance
+        - nonce
+        - totalSent
+        - totalReceived
+        - txCount
+        - stakedAmount
+        - firstSeen
+        - lastSeen
+      properties:
+        address:
+          type: string
+        balance:
+          type: string
+        nonce:
+          type: integer
+        totalSent:
+          type: string
+        totalReceived:
+          type: string
+        txCount:
+          type: integer
+        stakedAmount:
+          type: string
+        firstSeen:
+          type: string
+        lastSeen:
+          type: string
+
+    TokenStats:
+      type: object
+      required:
+        - totalSupplyCap
+        - circulatingSupply
+        - minedSupply
+        - foundationPremine
+        - ammPoolSeed
+        - currentBlockReward
+        - nextHalvingBlock
+        - halvingInterval
+        - blocksUntilHalving
+        - percentMined
+        - burnedSupply
+        - stakingApr
+      properties:
+        totalSupplyCap:
+          type: string
+        circulatingSupply:
+          type: string
+        minedSupply:
+          type: string
+        foundationPremine:
+          type: string
+        ammPoolSeed:
+          type: string
+        currentBlockReward:
+          type: number
+        nextHalvingBlock:
+          type: integer
+        halvingInterval:
+          type: integer
+        blocksUntilHalving:
+          type: integer
+        percentMined:
+          type: number
+        burnedSupply:
+          type: string
+        stakingApr:
+          type: number
+
+    DefiStats:
+      type: object
+      required:
+        - totalTvl
+        - ammPoolTvl
+        - stakingTvl
+        - lendingTvl
+        - totalPools
+        - dailyVolume
+        - totalFees24h
+        - zbxPrice
+        - priceChange24h
+      properties:
+        totalTvl:
+          type: string
+        ammPoolTvl:
+          type: string
+        stakingTvl:
+          type: string
+        lendingTvl:
+          type: string
+        totalPools:
+          type: integer
+        dailyVolume:
+          type: string
+        totalFees24h:
+          type: string
+        zbxPrice:
+          type: number
+        priceChange24h:
+          type: number
+
+    ActivityPoint:
+      type: object
+      required: [blockHeight, txCount, timestamp]
+      properties:
+        blockHeight:
+          type: integer
+        txCount:
+          type: integer
+        timestamp:
+          type: string
