@@ -1,0 +1,50 @@
+[package]
+name    = "zbx-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.zbx-rlp]
+path = "../crates/zbx-rlp"
+
+[dependencies.zbx-codec]
+path = "../crates/zbx-codec"
+
+[dependencies.zbx-types]
+path = "../crates/zbx-types"
+
+# Pass-9 (2026-05-09): fuzz target for MPT TrieNode decoder (defense-in-depth
+# on the surface that Pass-8 fixed).
+[dependencies.zbx-trie]
+path = "../crates/zbx-trie"
+
+# Each fuzz target is a separate binary.
+[[bin]]
+name = "tx_decode"
+path = "fuzz_targets/tx_decode.rs"
+test = false
+doc  = false
+
+[[bin]]
+name = "block_import"
+path = "fuzz_targets/block_import.rs"
+test = false
+doc  = false
+
+[[bin]]
+name = "rlp_decode"
+path = "fuzz_targets/rlp_decode.rs"
+test = false
+doc  = false
+
+[[bin]]
+name = "fuzz_trie_node_decode"
+path = "fuzz_targets/fuzz_trie_node_decode.rs"
+test = false
+doc  = false

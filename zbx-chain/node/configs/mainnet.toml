@@ -1,0 +1,59 @@
+# Zebvix Mainnet — production node configuration
+# VPS: 93.127.213.192    RPC: https://rpc.zbx.io  (proxied to 127.0.0.1:8545)
+
+[chain]
+chain_id      = 8989
+genesis_file  = "/etc/zbx/genesis.mainnet.json"
+is_validator  = false
+validator_key = ""
+# Task #4: EIP-4844 KZG point-evaluation precompile (0x0B). The file
+# at this path is the official Ethereum KZG Summoning Ceremony output,
+# committed in-tree (sourced from
+# https://raw.githubusercontent.com/ethereum/c-kzg-4844/main/src/trusted_setup.txt
+# — verified shape: 4096 G1 monomial + 4096 G1 Lagrange + 65 G2 monomial).
+# The node refuses to boot if the file is missing or malformed.
+kzg_trusted_setup_path = "node/configs/trusted_setup.txt"
+
+[storage]
+data_dir       = "/var/lib/zbx-mainnet"
+max_open_files = 4096
+cache_size_mb  = 2048
+
+# Task #15: production trie pruner (zbx_pruner::RocksDbPruner). Mark-and-sweep
+# over Column::TrieNodes; coordination lock blocks sweep during commit.
+[storage.pruner]
+enabled            = true
+interval_secs      = 60
+max_retained_roots = 128
+sweep_batch_size   = 1000
+min_height_advance = 0
+archive_mode       = false
+
+[network]
+listen_addr = "0.0.0.0"
+listen_port = 30303
+max_peers   = 100
+bootnodes   = [
+  "93.127.213.192:30303",
+]
+nat = "any"
+
+[consensus]
+block_time_ms        = 5000
+max_block_gas        = 30000000
+mempool_max_pending  = 10000
+mempool_max_queued   = 5000
+
+[rpc]
+http_enabled    = true
+http_port       = 8545
+ws_enabled      = false   # WebSocket RPC available (zbx_rpc::WsServer); operator opt-in only — set true and proxy 8546 through nginx (wss://) before enabling
+ws_port         = 8546
+# Bind to localhost — nginx terminates TLS and proxies https://rpc.zbx.io → 127.0.0.1:8545
+bind_addr       = "127.0.0.1"
+cors_origins    = ["https://zbx.io", "https://app.zbx.io", "https://wallet.zbx.io"]
+rate_limit_rpm  = 600
+
+[metrics]
+enabled = true
+port    = 9000

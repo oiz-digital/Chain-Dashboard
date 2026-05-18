@@ -1,0 +1,11 @@
+[package]
+name = "zbx-finality"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zbx-primitives = { path = "../zbx-primitives" }
+serde    = { version = "1", features = ["derive"] }
+serde-big-array = "0.5"
+tracing  = "0.1"
+thiserror = "1"
