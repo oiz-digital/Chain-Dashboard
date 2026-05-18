@@ -245,10 +245,14 @@ impl Opcode {
             0x5D => Some(Self::TSTORE),
             0x5E => Some(Self::MCOPY),
             0x5F => Some(Self::PUSH0),
-            0x60..=0x7F => Some(unsafe { std::mem::transmute(byte) }),
-            0x80..=0x8F => Some(unsafe { std::mem::transmute(byte) }),
-            0x90..=0x9F => Some(unsafe { std::mem::transmute(byte) }),
-            0xA0..=0xA4 => Some(unsafe { std::mem::transmute(byte) }),
+            // SAFETY: ZvmOpCode is repr(u8) and every byte in the matched
+            // ranges corresponds to an explicit enum variant. The enclosing
+            // match arm guarantees the value is in-range, so transmute is
+            // sound.
+            0x60..=0x7F => Some(unsafe { std::mem::transmute::<u8, Self>(byte) }),
+            0x80..=0x8F => Some(unsafe { std::mem::transmute::<u8, Self>(byte) }),
+            0x90..=0x9F => Some(unsafe { std::mem::transmute::<u8, Self>(byte) }),
+            0xA0..=0xA4 => Some(unsafe { std::mem::transmute::<u8, Self>(byte) }),
             0xF0 => Some(Self::CREATE),
             0xF1 => Some(Self::CALL),
             0xF2 => Some(Self::CALLCODE),
