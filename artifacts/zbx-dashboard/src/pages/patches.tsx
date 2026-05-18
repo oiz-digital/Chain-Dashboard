@@ -225,7 +225,7 @@ pub fn compute_slash(validator_stake: u64) -> SlashResult {
 zbx keygen --type ed25519   --out ~/.zbx/keys/node.key
 zbx keygen --type bls12_381 --out ~/.zbx/keys/bls.key
 # Exports public JSON only — private keys never leave the machine
-cat > "$CEREMONY_DIR/\${MONIKER}-public.json" <<JSON
+cat > "$CEREMONY_DIR/${'$'}{MONIKER}-public.json" <<JSON
 { "address": "\$addr", "bls_pubkey": "\$bls_pub", ... }
 JSON
 
