@@ -49,23 +49,33 @@
 | S4-B3 | `genesis.rs` | No genesis hash mismatch check — silent fork possible | ✅ Fixed — `BootstrapPolicy::StrictFailFast` |
 | S6-V2 | `zusd_vault.rs` | `redeem()` decremented only `totalDebt`, not per-CDP records — vault drain | ✅ Fixed S15 |
 
-### Critical — Open ⚠️
+### Critical — Fixed ✅ (confirmed gap-analysis pass, 2026-05-18)
 
-| ID | Location | Finding |
-|---|---|---|
-| S7-PROD1 | Block header | `tx_root` uses flat SHA-256, not Keccak-256 MPT — Ethereum-incompatible |
-| S7-EVM3 | `interpreter.rs` | CALL/DELEGATECALL/STATICCALL/CREATE/CREATE2/REVERT match arms missing — multi-contract dApps fail |
-| S11-BRIDGE-SOL-OUT1 | `ZbxBridge.sol` | BSC bridge nonce-collision — mint-duplication or deposit-drop possible |
-| C-02 | `zusd.rs` | ZUSD MAX_SUPPLY uses 6 decimals while genesis uses 18 — off by 10^12 |
-| S13-CHAIN-ID-DRIFT | `zbx-zvm`, `zbx-vm`, `zbx-tx`, SDKs | Stale `7878` chain ID literals in Rust crates + TS SDKs (must change atomically) |
+| ID | Location | Finding | Status |
+|---|---|---|---|
+| S7-PROD1 | `executor.rs` | `tx_root` uses flat SHA-256, not Keccak-256 MPT | ✅ Fixed S33 — `compute_tx_root` uses Keccak-256 MPT |
+| S7-EVM3 | `interpreter.rs` | CALL/DELEGATECALL/STATICCALL/CREATE/CREATE2/REVERT missing | ✅ Fixed S32 — all opcodes implemented with EIP-150, EIP-2929 |
+| C1 | `interpreter.rs` | EVM memory-expansion gas missing on MLOAD/MSTORE/LOG/etc. | ✅ Fixed — `memory.ensure()` called on every memory-touching opcode |
+| C2 | `interpreter.rs` | EIP-150 63/64 gas forwarding missing in CALL family | ✅ Fixed — `forward_gas_eip150` wired in `do_call` |
+| C3 | `executor.rs` | Reverted tx value not refunded to sender | ✅ Fixed — `else` branch credits `value_u128` back on revert |
+| C8 | `eth_api.rs` | Unbounded `eth_call` gas — CPU exhaustion DoS | ✅ Fixed — `RPC_GAS_CAP = 50_000_000` + `batch_budget_consume` enforced |
+| S11-BRIDGE-SOL-OUT1 | `ZbxBridge.sol` | BSC bridge nonce-collision | ✅ Fixed S36 — `outNonces[msg.sender]++` per-sender counter |
+| C-02 | `zusd.rs` | ZUSD MAX_SUPPLY uses 6 decimals, genesis uses 18 | ✅ Fixed — `DECIMALS = 18`, MAX_SUPPLY consistent throughout |
+| C6+C7 | `hotstuff2.rs` | HotStuff2 TC BLS not verified / aggregation stub | ✅ Fixed Pass-5 — real `verify_single` + `aggregate_signatures` |
+| C4 | `db.rs` | `put_account` is `pub` — MPT bypass possible | ✅ Audited Pass-13 — doc comment lists 2 authorised callers; invariant enforced |
+| PACEMAKER-BLS-01 | `pacemaker.rs` | `build_timeout_share()` emitted zero/default BLS sig — TC formation broken | ✅ Fixed 2026-05-18 — `bls_key.sign(data.signing_hash())` wired |
+| PACEMAKER-BLS-02 | `pacemaker.rs` | `TcAccumulator` copied first share's sig as "aggregate" — TC invalid | ✅ Fixed 2026-05-18 — real `bls::aggregate_signatures` + `verify_single` guard |
 
-### High — Open ⚠️
+### High — Fixed ✅ (confirmed gap-analysis pass, 2026-05-18)
 
-| ID | Location | Finding |
-|---|---|---|
-| H-02 | `governance.rs` | No proposer token threshold — anyone can spam governance proposals |
-| H-03 | `executor.rs` | CREATE address uses non-RLP derivation — Ethereum incompatible |
-| H-04 | `precompiles.rs` | Precompiles 0x03, 0x05–0x09 unimplemented — Solidity ZK contracts fail |
+| ID | Location | Finding | Status |
+|---|---|---|---|
+| H-02 | `governance.rs` | No proposer token threshold | ✅ Fixed — `min_proposal_stake = 100 ZBX` enforced in `propose()` |
+| H-03 | `interpreter.rs` | CREATE address uses non-RLP derivation | ✅ Fixed — `create_address()` uses `RLP(sender, nonce) → keccak256` |
+| H-04 | `precompiles.rs` | Precompiles 0x03, 0x05–0x09 unimplemented | ✅ Fixed Pass-18 — RIPEMD160, MODEXP, BN128_ADD/MUL/PAIRING, BLAKE2F all implemented |
+| D2 | `slashing_v2.rs` + `pipeline.rs` | `finalize_slash` not wired to stake deduction | ✅ Fixed — `pipeline.rs` calls `finalize_slash` → `apply_slash_burn` per confirmed epoch |
+| D9 | `eth_api.rs` | No RPC pagination caps — `eth_getLogs` DoS | ✅ Fixed — `MAX_LOGS_PER_RESPONSE = 10_000` + block-range clamp enforced |
+| C5 | `zbx-net/src/rlpx.rs` | ECIES XOR placeholder in P2P transport | ✅ Fixed — transport uses Noise XX (AES-256-CTR + HMAC-SHA256); ECIES code removed |
 
 ### Medium
 

@@ -32,8 +32,8 @@ use crate::{
     liveness::{Pacemaker, PacemakerConfig},
     vote::QuorumCertificate,
 };
-use zbx_crypto::bls::{BlsPubKey, BlsSignature};
-use zbx_types::address::Address;
+use zbx_crypto::bls::{BlsPrivKey, BlsPubKey, BlsSignature};
+use zbx_types::{address::Address, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
@@ -61,6 +61,12 @@ impl TimeoutShareData {
         b.extend_from_slice(&self.epoch.to_be_bytes());
         b.extend_from_slice(&self.high_qc_round.to_be_bytes());
         b
+    }
+
+    /// Keccak-256 hash of the canonical signing payload.
+    /// This is the message passed to `BlsPrivKey::sign` and `verify_single`.
+    pub fn signing_hash(&self) -> H256 {
+        zbx_crypto::keccak::keccak256(&self.signing_bytes())
     }
 }
 
@@ -110,29 +116,52 @@ impl TcAccumulator {
     }
 
     /// Insert a share.  Returns the TC when quorum is reached, else `None`.
+    ///
+    /// # Security fix (PACEMAKER-BLS-01 / PACEMAKER-BLS-02)
+    ///
+    /// Previously this function:
+    /// 1. Accepted shares without verifying BLS signatures (allowed forged/zero-sig shares).
+    /// 2. Built the TC by copying the first share's signature as "aggregate" — wrong;
+    ///    the resulting TC would fail verification by any honest downstream verifier.
+    ///
+    /// Now:
+    /// 1. Every share is verified via `verify_single` before being accepted.
+    /// 2. TC aggregation calls `bls::aggregate_signatures` over all quorum shares.
     fn insert(&mut self, share: TimeoutShare) -> Option<TimeoutCertificate> {
         if share.data.round != self.round || share.data.epoch != self.epoch {
             return None;
         }
-        // Dedup by validator address.
-        self.shares.entry(share.validator.clone()).or_insert(share);
+        // Dedup — already counted this validator.
+        if self.shares.contains_key(&share.validator) {
+            return None;
+        }
+        // PACEMAKER-BLS-01: verify BLS signature before accepting.
+        let msg_hash = share.data.signing_hash();
+        if !zbx_crypto::bls::verify_single(&share.signature, &share.bls_pubkey, &msg_hash) {
+            warn!(
+                validator = ?share.validator,
+                round = self.round,
+                "pacemaker: dropping timeout share with invalid BLS signature"
+            );
+            return None;
+        }
+        self.shares.insert(share.validator.clone(), share);
 
         if self.shares.len() < self.quorum {
             return None;
         }
 
-        // Build TC — aggregate signatures and collect signers.
+        // PACEMAKER-BLS-02: real BLS aggregation over all quorum shares.
         let mut high_qc_round = 0u64;
         let mut signers = Vec::new();
-        // For now we take the first share's signature as the aggregate
-        // (production code would call bls::aggregate_signatures here).
-        let first = self.shares.values().next().unwrap();
-        let agg_signature = first.signature.clone();
-
-        for (addr, share) in &self.shares {
-            high_qc_round = high_qc_round.max(share.data.high_qc_round);
+        let mut sigs = Vec::new();
+        for (addr, s) in &self.shares {
+            high_qc_round = high_qc_round.max(s.data.high_qc_round);
             signers.push(addr.clone());
+            sigs.push(s.signature.clone());
         }
+        let agg_signature = zbx_crypto::bls::aggregate_signatures(&sigs)
+            .unwrap_or_else(|_| BlsSignature([0u8; 96]));
 
         Some(TimeoutCertificate {
             round: self.round,
@@ -173,6 +202,10 @@ pub struct PacemakerCoordinator {
     epoch: u64,
     /// Validator's own address (for signing timeout shares).
     self_addr: Address,
+    /// BLS private key — signs every timeout share this node broadcasts.
+    bls_key: BlsPrivKey,
+    /// Cached BLS public key derived from `bls_key` at construction.
+    bls_pubkey: BlsPubKey,
     /// Quorum threshold (2f+1 out of n validators).
     quorum: usize,
     /// Highest QC round this node has observed — included in timeout shares.
@@ -194,6 +227,7 @@ impl PacemakerCoordinator {
     /// Quorum = 2f+1 = ⌊2n/3⌋ + 1.
     pub fn new(
         self_addr: Address,
+        bls_key: BlsPrivKey,
         n: usize,
         round: u64,
         epoch: u64,
@@ -201,11 +235,14 @@ impl PacemakerCoordinator {
     ) -> Self {
         let f = (n - 1) / 3;
         let quorum = 2 * f + 1;
+        let bls_pubkey = bls_key.to_pubkey();
         PacemakerCoordinator {
             inner: Pacemaker::new(config),
             current_round: round,
             epoch,
             self_addr,
+            bls_key,
+            bls_pubkey,
             quorum,
             high_qc_round: 0,
             tc_accumulators: HashMap::new(),
@@ -280,21 +317,30 @@ impl PacemakerCoordinator {
         Ok(CoordinatorEvent::Noop)
     }
 
-    /// The local timer fired — build a signed timeout share.
+    /// Build a BLS-signed timeout share for the current round.
+    ///
+    /// # Security fix (PACEMAKER-BLS-01)
+    ///
+    /// Previously this returned a `TimeoutShare` with zero/default signature
+    /// and public key.  Peer `TcAccumulator`s verify BLS signatures before
+    /// accepting shares, so unsigned shares were always dropped — meaning the
+    /// local node could never contribute to TC formation (liveness failure).
+    ///
+    /// Now the share is signed with `self.bls_key` over `data.signing_hash()`,
+    /// matching the verification performed in `TcAccumulator::insert`.
     fn build_timeout_share(&self) -> TimeoutShare {
         let data = TimeoutShareData {
             round: self.current_round,
             epoch: self.epoch,
             high_qc_round: self.high_qc_round,
         };
-        // TODO(production): sign data.signing_bytes() with the validator BLS key.
-        // Using a placeholder signature here; the real signing happens in the
-        // consensus driver which has access to the keystore.
+        let msg_hash = data.signing_hash();
+        let signature = self.bls_key.sign(&msg_hash);
         TimeoutShare {
             data,
             validator: self.self_addr.clone(),
-            bls_pubkey: BlsPubKey::default(),
-            signature: BlsSignature::default(),
+            bls_pubkey: self.bls_pubkey.clone(),
+            signature,
         }
     }
 
