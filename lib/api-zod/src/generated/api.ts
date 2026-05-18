@@ -306,3 +306,470 @@ export const GetChainActivityResponseItem = zod.object({
 export const GetChainActivityResponse = zod.array(GetChainActivityResponseItem)
 
 
+/**
+ * @summary Admin dashboard overview stats
+ */
+export const GetAdminStatsResponse = zod.object({
+  "totalValidators": zod.number(),
+  "activeValidators": zod.number(),
+  "jailedValidators": zod.number(),
+  "totalTokens": zod.number(),
+  "totalAiModels": zod.number(),
+  "totalAdminUsers": zod.number(),
+  "totalStaked": zod.string(),
+  "networkTps": zod.number(),
+  "latestBlock": zod.number(),
+  "uptimeAvg": zod.number()
+})
+
+
+/**
+ * @summary List all validators (admin)
+ */
+export const adminListValidatorsQueryPageDefault = 1;
+export const adminListValidatorsQueryLimitDefault = 20;
+
+export const AdminListValidatorsQueryParams = zod.object({
+  "page": zod.coerce.number().default(adminListValidatorsQueryPageDefault),
+  "limit": zod.coerce.number().default(adminListValidatorsQueryLimitDefault),
+  "status": zod.enum(['active', 'inactive', 'jailed']).optional()
+})
+
+export const AdminListValidatorsResponse = zod.object({
+  "validators": zod.array(zod.object({
+  "id": zod.number(),
+  "address": zod.string(),
+  "moniker": zod.string(),
+  "status": zod.enum(['active', 'inactive', 'jailed']),
+  "commission": zod.string(),
+  "votingPower": zod.string(),
+  "totalStaked": zod.string(),
+  "selfStaked": zod.string(),
+  "delegators": zod.number(),
+  "uptime": zod.string(),
+  "blocksProposed": zod.number(),
+  "blocksSkipped": zod.number(),
+  "rank": zod.number(),
+  "website": zod.string(),
+  "description": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Add a new validator
+ */
+export const AdminCreateValidatorBody = zod.object({
+  "address": zod.string(),
+  "moniker": zod.string(),
+  "status": zod.enum(['active', 'inactive', 'jailed']).optional(),
+  "commission": zod.string().optional(),
+  "votingPower": zod.string().optional(),
+  "totalStaked": zod.string().optional(),
+  "selfStaked": zod.string().optional(),
+  "delegators": zod.number().optional(),
+  "uptime": zod.string().optional(),
+  "website": zod.string().optional(),
+  "description": zod.string().optional(),
+  "rank": zod.number().optional()
+})
+
+
+/**
+ * @summary Update validator
+ */
+export const AdminUpdateValidatorParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminUpdateValidatorBody = zod.object({
+  "moniker": zod.string().optional(),
+  "status": zod.enum(['active', 'inactive', 'jailed']).optional(),
+  "commission": zod.string().optional(),
+  "votingPower": zod.string().optional(),
+  "totalStaked": zod.string().optional(),
+  "rank": zod.number().optional(),
+  "website": zod.string().optional(),
+  "description": zod.string().optional()
+})
+
+export const AdminUpdateValidatorResponse = zod.object({
+  "id": zod.number(),
+  "address": zod.string(),
+  "moniker": zod.string(),
+  "status": zod.enum(['active', 'inactive', 'jailed']),
+  "commission": zod.string(),
+  "votingPower": zod.string(),
+  "totalStaked": zod.string(),
+  "selfStaked": zod.string(),
+  "delegators": zod.number(),
+  "uptime": zod.string(),
+  "blocksProposed": zod.number(),
+  "blocksSkipped": zod.number(),
+  "rank": zod.number(),
+  "website": zod.string(),
+  "description": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a validator
+ */
+export const AdminDeleteValidatorParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List token registry (admin)
+ */
+export const adminListTokensQueryPageDefault = 1;
+export const adminListTokensQueryLimitDefault = 20;
+
+export const AdminListTokensQueryParams = zod.object({
+  "page": zod.coerce.number().default(adminListTokensQueryPageDefault),
+  "limit": zod.coerce.number().default(adminListTokensQueryLimitDefault)
+})
+
+export const AdminListTokensResponse = zod.object({
+  "tokens": zod.array(zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['native', 'erc20', 'lp', 'wrapped']),
+  "contractAddress": zod.string().nullish(),
+  "decimals": zod.number(),
+  "totalSupply": zod.string(),
+  "circulatingSupply": zod.string(),
+  "priceUsd": zod.string(),
+  "priceChange24h": zod.string(),
+  "marketCap": zod.string(),
+  "volume24h": zod.string(),
+  "holders": zod.number(),
+  "logoUrl": zod.string().nullish(),
+  "description": zod.string().optional(),
+  "website": zod.string().optional(),
+  "isActive": zod.boolean(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Add a token
+ */
+export const AdminCreateTokenBody = zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['native', 'erc20', 'lp', 'wrapped']).optional(),
+  "contractAddress": zod.string().optional(),
+  "decimals": zod.number().optional(),
+  "totalSupply": zod.string().optional(),
+  "circulatingSupply": zod.string().optional(),
+  "priceUsd": zod.string().optional(),
+  "marketCap": zod.string().optional(),
+  "volume24h": zod.string().optional(),
+  "holders": zod.number().optional(),
+  "logoUrl": zod.string().optional(),
+  "description": zod.string().optional(),
+  "website": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
+  "isVerified": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update token
+ */
+export const AdminUpdateTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminUpdateTokenBody = zod.object({
+  "name": zod.string().optional(),
+  "type": zod.enum(['native', 'erc20', 'lp', 'wrapped']).optional(),
+  "priceUsd": zod.string().optional(),
+  "priceChange24h": zod.string().optional(),
+  "marketCap": zod.string().optional(),
+  "volume24h": zod.string().optional(),
+  "holders": zod.number().optional(),
+  "isActive": zod.boolean().optional(),
+  "isVerified": zod.boolean().optional(),
+  "description": zod.string().optional(),
+  "website": zod.string().optional(),
+  "logoUrl": zod.string().optional()
+})
+
+export const AdminUpdateTokenResponse = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['native', 'erc20', 'lp', 'wrapped']),
+  "contractAddress": zod.string().nullish(),
+  "decimals": zod.number(),
+  "totalSupply": zod.string(),
+  "circulatingSupply": zod.string(),
+  "priceUsd": zod.string(),
+  "priceChange24h": zod.string(),
+  "marketCap": zod.string(),
+  "volume24h": zod.string(),
+  "holders": zod.number(),
+  "logoUrl": zod.string().nullish(),
+  "description": zod.string().optional(),
+  "website": zod.string().optional(),
+  "isActive": zod.boolean(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a token
+ */
+export const AdminDeleteTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List AI models registry
+ */
+export const adminListAiModelsQueryPageDefault = 1;
+export const adminListAiModelsQueryLimitDefault = 20;
+
+export const AdminListAiModelsQueryParams = zod.object({
+  "page": zod.coerce.number().default(adminListAiModelsQueryPageDefault),
+  "limit": zod.coerce.number().default(adminListAiModelsQueryLimitDefault)
+})
+
+export const AdminListAiModelsResponse = zod.object({
+  "models": zod.array(zod.object({
+  "id": zod.number(),
+  "modelIndex": zod.number(),
+  "name": zod.string(),
+  "category": zod.enum(['nlp', 'security', 'oracle', 'vision', 'audio', 'multimodal']),
+  "quantization": zod.enum(['INT4', 'INT8', 'FP16', 'FP32']),
+  "paramsBillion": zod.string(),
+  "gasPerCall": zod.number(),
+  "latencyMs": zod.number(),
+  "accuracyPct": zod.string(),
+  "totalCalls": zod.number(),
+  "totalRevenue": zod.string(),
+  "isActive": zod.boolean(),
+  "description": zod.string(),
+  "publisherAddress": zod.string(),
+  "publisherRevenuePct": zod.number(),
+  "daoRevenuePct": zod.number(),
+  "validatorRevenuePct": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Register an AI model
+ */
+export const AdminCreateAiModelBody = zod.object({
+  "modelIndex": zod.number(),
+  "name": zod.string(),
+  "category": zod.enum(['nlp', 'security', 'oracle', 'vision', 'audio', 'multimodal']),
+  "quantization": zod.enum(['INT4', 'INT8', 'FP16', 'FP32']),
+  "paramsBillion": zod.string().optional(),
+  "gasPerCall": zod.number(),
+  "latencyMs": zod.number().optional(),
+  "accuracyPct": zod.string().optional(),
+  "description": zod.string().optional(),
+  "publisherAddress": zod.string().optional(),
+  "publisherRevenuePct": zod.number().optional(),
+  "daoRevenuePct": zod.number().optional(),
+  "validatorRevenuePct": zod.number().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update AI model
+ */
+export const AdminUpdateAiModelParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminUpdateAiModelBody = zod.object({
+  "name": zod.string().optional(),
+  "category": zod.enum(['nlp', 'security', 'oracle', 'vision', 'audio', 'multimodal']).optional(),
+  "quantization": zod.enum(['INT4', 'INT8', 'FP16', 'FP32']).optional(),
+  "gasPerCall": zod.number().optional(),
+  "latencyMs": zod.number().optional(),
+  "accuracyPct": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
+  "description": zod.string().optional(),
+  "publisherRevenuePct": zod.number().optional(),
+  "daoRevenuePct": zod.number().optional(),
+  "validatorRevenuePct": zod.number().optional()
+})
+
+export const AdminUpdateAiModelResponse = zod.object({
+  "id": zod.number(),
+  "modelIndex": zod.number(),
+  "name": zod.string(),
+  "category": zod.enum(['nlp', 'security', 'oracle', 'vision', 'audio', 'multimodal']),
+  "quantization": zod.enum(['INT4', 'INT8', 'FP16', 'FP32']),
+  "paramsBillion": zod.string(),
+  "gasPerCall": zod.number(),
+  "latencyMs": zod.number(),
+  "accuracyPct": zod.string(),
+  "totalCalls": zod.number(),
+  "totalRevenue": zod.string(),
+  "isActive": zod.boolean(),
+  "description": zod.string(),
+  "publisherAddress": zod.string(),
+  "publisherRevenuePct": zod.number(),
+  "daoRevenuePct": zod.number(),
+  "validatorRevenuePct": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove AI model
+ */
+export const AdminDeleteAiModelParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List admin users
+ */
+export const adminListUsersQueryPageDefault = 1;
+export const adminListUsersQueryLimitDefault = 20;
+
+export const AdminListUsersQueryParams = zod.object({
+  "page": zod.coerce.number().default(adminListUsersQueryPageDefault),
+  "limit": zod.coerce.number().default(adminListUsersQueryLimitDefault)
+})
+
+export const AdminListUsersResponse = zod.object({
+  "users": zod.array(zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['superadmin', 'admin', 'moderator', 'viewer']),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "lastLogin": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create admin user
+ */
+export const AdminCreateUserBody = zod.object({
+  "username": zod.string(),
+  "email": zod.string(),
+  "password": zod.string(),
+  "role": zod.enum(['superadmin', 'admin', 'moderator', 'viewer']),
+  "displayName": zod.string().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Update admin user
+ */
+export const AdminUpdateUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminUpdateUserBody = zod.object({
+  "role": zod.enum(['superadmin', 'admin', 'moderator', 'viewer']).optional(),
+  "displayName": zod.string().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const AdminUpdateUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['superadmin', 'admin', 'moderator', 'viewer']),
+  "displayName": zod.string(),
+  "isActive": zod.boolean(),
+  "lastLogin": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove admin user
+ */
+export const AdminDeleteUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List system settings
+ */
+export const AdminListSettingsResponseItem = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "value": zod.string(),
+  "type": zod.enum(['string', 'number', 'boolean', 'json']),
+  "label": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "isPublic": zod.boolean(),
+  "updatedAt": zod.string()
+})
+export const AdminListSettingsResponse = zod.array(AdminListSettingsResponseItem)
+
+
+/**
+ * @summary Update a system setting by key
+ */
+export const AdminUpdateSettingParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const AdminUpdateSettingBody = zod.object({
+  "value": zod.string()
+})
+
+export const AdminUpdateSettingResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "value": zod.string(),
+  "type": zod.enum(['string', 'number', 'boolean', 'json']),
+  "label": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "isPublic": zod.boolean(),
+  "updatedAt": zod.string()
+})
+
+

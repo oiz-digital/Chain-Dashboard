@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/zbx-admin/"
+title = "ZBX Chain Admin"
+version = "1.0.0"
+id = "artifacts/zbx-admin"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/zbx-admin/" ]
+localPort = 25455
+
+[services.development]
+run = "pnpm --filter @workspace/zbx-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zbx-admin", "run", "build" ]
+publicDir = "artifacts/zbx-admin/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25455"
+BASE_PATH = "/zbx-admin/"

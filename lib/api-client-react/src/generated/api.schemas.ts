@@ -246,12 +246,448 @@ export interface ActivityPoint {
   timestamp: string;
 }
 
+export interface AdminStats {
+  totalValidators: number;
+  activeValidators: number;
+  jailedValidators: number;
+  totalTokens: number;
+  totalAiModels: number;
+  totalAdminUsers: number;
+  totalStaked: string;
+  networkTps: number;
+  latestBlock: number;
+  uptimeAvg: number;
+}
+
+export type AdminValidatorStatus = typeof AdminValidatorStatus[keyof typeof AdminValidatorStatus];
+
+
+export const AdminValidatorStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  jailed: 'jailed',
+} as const;
+
+export interface AdminValidator {
+  id: number;
+  address: string;
+  moniker: string;
+  status: AdminValidatorStatus;
+  commission: string;
+  votingPower: string;
+  totalStaked: string;
+  selfStaked: string;
+  delegators: number;
+  uptime: string;
+  blocksProposed: number;
+  blocksSkipped: number;
+  rank: number;
+  website: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminValidatorList {
+  validators: AdminValidator[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ValidatorInputStatus = typeof ValidatorInputStatus[keyof typeof ValidatorInputStatus];
+
+
+export const ValidatorInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  jailed: 'jailed',
+} as const;
+
+export interface ValidatorInput {
+  address: string;
+  moniker: string;
+  status?: ValidatorInputStatus;
+  commission?: string;
+  votingPower?: string;
+  totalStaked?: string;
+  selfStaked?: string;
+  delegators?: number;
+  uptime?: string;
+  website?: string;
+  description?: string;
+  rank?: number;
+}
+
+export type ValidatorUpdateStatus = typeof ValidatorUpdateStatus[keyof typeof ValidatorUpdateStatus];
+
+
+export const ValidatorUpdateStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  jailed: 'jailed',
+} as const;
+
+export interface ValidatorUpdate {
+  moniker?: string;
+  status?: ValidatorUpdateStatus;
+  commission?: string;
+  votingPower?: string;
+  totalStaked?: string;
+  rank?: number;
+  website?: string;
+  description?: string;
+}
+
+export type AdminTokenType = typeof AdminTokenType[keyof typeof AdminTokenType];
+
+
+export const AdminTokenType = {
+  native: 'native',
+  erc20: 'erc20',
+  lp: 'lp',
+  wrapped: 'wrapped',
+} as const;
+
+export interface AdminToken {
+  id: number;
+  symbol: string;
+  name: string;
+  type: AdminTokenType;
+  /** @nullable */
+  contractAddress?: string | null;
+  decimals: number;
+  totalSupply: string;
+  circulatingSupply: string;
+  priceUsd: string;
+  priceChange24h: string;
+  marketCap: string;
+  volume24h: string;
+  holders: number;
+  /** @nullable */
+  logoUrl?: string | null;
+  description?: string;
+  website?: string;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTokenList {
+  tokens: AdminToken[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type TokenInputType = typeof TokenInputType[keyof typeof TokenInputType];
+
+
+export const TokenInputType = {
+  native: 'native',
+  erc20: 'erc20',
+  lp: 'lp',
+  wrapped: 'wrapped',
+} as const;
+
+export interface TokenInput {
+  symbol: string;
+  name: string;
+  type?: TokenInputType;
+  contractAddress?: string;
+  decimals?: number;
+  totalSupply?: string;
+  circulatingSupply?: string;
+  priceUsd?: string;
+  marketCap?: string;
+  volume24h?: string;
+  holders?: number;
+  logoUrl?: string;
+  description?: string;
+  website?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
+}
+
+export type TokenUpdateType = typeof TokenUpdateType[keyof typeof TokenUpdateType];
+
+
+export const TokenUpdateType = {
+  native: 'native',
+  erc20: 'erc20',
+  lp: 'lp',
+  wrapped: 'wrapped',
+} as const;
+
+export interface TokenUpdate {
+  name?: string;
+  type?: TokenUpdateType;
+  priceUsd?: string;
+  priceChange24h?: string;
+  marketCap?: string;
+  volume24h?: string;
+  holders?: number;
+  isActive?: boolean;
+  isVerified?: boolean;
+  description?: string;
+  website?: string;
+  logoUrl?: string;
+}
+
+export type AdminAiModelCategory = typeof AdminAiModelCategory[keyof typeof AdminAiModelCategory];
+
+
+export const AdminAiModelCategory = {
+  nlp: 'nlp',
+  security: 'security',
+  oracle: 'oracle',
+  vision: 'vision',
+  audio: 'audio',
+  multimodal: 'multimodal',
+} as const;
+
+export type AdminAiModelQuantization = typeof AdminAiModelQuantization[keyof typeof AdminAiModelQuantization];
+
+
+export const AdminAiModelQuantization = {
+  INT4: 'INT4',
+  INT8: 'INT8',
+  FP16: 'FP16',
+  FP32: 'FP32',
+} as const;
+
+export interface AdminAiModel {
+  id: number;
+  modelIndex: number;
+  name: string;
+  category: AdminAiModelCategory;
+  quantization: AdminAiModelQuantization;
+  paramsBillion: string;
+  gasPerCall: number;
+  latencyMs: number;
+  accuracyPct: string;
+  totalCalls: number;
+  totalRevenue: string;
+  isActive: boolean;
+  description: string;
+  publisherAddress: string;
+  publisherRevenuePct: number;
+  daoRevenuePct: number;
+  validatorRevenuePct: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAiModelList {
+  models: AdminAiModel[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type AiModelInputCategory = typeof AiModelInputCategory[keyof typeof AiModelInputCategory];
+
+
+export const AiModelInputCategory = {
+  nlp: 'nlp',
+  security: 'security',
+  oracle: 'oracle',
+  vision: 'vision',
+  audio: 'audio',
+  multimodal: 'multimodal',
+} as const;
+
+export type AiModelInputQuantization = typeof AiModelInputQuantization[keyof typeof AiModelInputQuantization];
+
+
+export const AiModelInputQuantization = {
+  INT4: 'INT4',
+  INT8: 'INT8',
+  FP16: 'FP16',
+  FP32: 'FP32',
+} as const;
+
+export interface AiModelInput {
+  modelIndex: number;
+  name: string;
+  category: AiModelInputCategory;
+  quantization: AiModelInputQuantization;
+  paramsBillion?: string;
+  gasPerCall: number;
+  latencyMs?: number;
+  accuracyPct?: string;
+  description?: string;
+  publisherAddress?: string;
+  publisherRevenuePct?: number;
+  daoRevenuePct?: number;
+  validatorRevenuePct?: number;
+  isActive?: boolean;
+}
+
+export type AiModelUpdateCategory = typeof AiModelUpdateCategory[keyof typeof AiModelUpdateCategory];
+
+
+export const AiModelUpdateCategory = {
+  nlp: 'nlp',
+  security: 'security',
+  oracle: 'oracle',
+  vision: 'vision',
+  audio: 'audio',
+  multimodal: 'multimodal',
+} as const;
+
+export type AiModelUpdateQuantization = typeof AiModelUpdateQuantization[keyof typeof AiModelUpdateQuantization];
+
+
+export const AiModelUpdateQuantization = {
+  INT4: 'INT4',
+  INT8: 'INT8',
+  FP16: 'FP16',
+  FP32: 'FP32',
+} as const;
+
+export interface AiModelUpdate {
+  name?: string;
+  category?: AiModelUpdateCategory;
+  quantization?: AiModelUpdateQuantization;
+  gasPerCall?: number;
+  latencyMs?: number;
+  accuracyPct?: string;
+  isActive?: boolean;
+  description?: string;
+  publisherRevenuePct?: number;
+  daoRevenuePct?: number;
+  validatorRevenuePct?: number;
+}
+
+export type AdminUserRecordRole = typeof AdminUserRecordRole[keyof typeof AdminUserRecordRole];
+
+
+export const AdminUserRecordRole = {
+  superadmin: 'superadmin',
+  admin: 'admin',
+  moderator: 'moderator',
+  viewer: 'viewer',
+} as const;
+
+export interface AdminUserRecord {
+  id: number;
+  username: string;
+  email: string;
+  role: AdminUserRecordRole;
+  displayName: string;
+  isActive: boolean;
+  /** @nullable */
+  lastLogin?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserList {
+  users: AdminUserRecord[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type AdminUserInputRole = typeof AdminUserInputRole[keyof typeof AdminUserInputRole];
+
+
+export const AdminUserInputRole = {
+  superadmin: 'superadmin',
+  admin: 'admin',
+  moderator: 'moderator',
+  viewer: 'viewer',
+} as const;
+
+export interface AdminUserInput {
+  username: string;
+  email: string;
+  password: string;
+  role: AdminUserInputRole;
+  displayName?: string;
+  isActive?: boolean;
+}
+
+export type AdminUserUpdateRole = typeof AdminUserUpdateRole[keyof typeof AdminUserUpdateRole];
+
+
+export const AdminUserUpdateRole = {
+  superadmin: 'superadmin',
+  admin: 'admin',
+  moderator: 'moderator',
+  viewer: 'viewer',
+} as const;
+
+export interface AdminUserUpdate {
+  role?: AdminUserUpdateRole;
+  displayName?: string;
+  isActive?: boolean;
+}
+
+export type SystemSettingType = typeof SystemSettingType[keyof typeof SystemSettingType];
+
+
+export const SystemSettingType = {
+  string: 'string',
+  number: 'number',
+  boolean: 'boolean',
+  json: 'json',
+} as const;
+
+export interface SystemSetting {
+  id: number;
+  key: string;
+  value: string;
+  type: SystemSettingType;
+  label: string;
+  description: string;
+  category: string;
+  isPublic: boolean;
+  updatedAt: string;
+}
+
+export interface SettingUpdate {
+  value: string;
+}
+
 export type ListBlocksParams = {
 page?: number;
 limit?: number;
 };
 
 export type ListTransactionsParams = {
+page?: number;
+limit?: number;
+};
+
+export type AdminListValidatorsParams = {
+page?: number;
+limit?: number;
+status?: AdminListValidatorsStatus;
+};
+
+export type AdminListValidatorsStatus = typeof AdminListValidatorsStatus[keyof typeof AdminListValidatorsStatus];
+
+
+export const AdminListValidatorsStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  jailed: 'jailed',
+} as const;
+
+export type AdminListTokensParams = {
+page?: number;
+limit?: number;
+};
+
+export type AdminListAiModelsParams = {
+page?: number;
+limit?: number;
+};
+
+export type AdminListUsersParams = {
 page?: number;
 limit?: number;
 };

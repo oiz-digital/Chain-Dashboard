@@ -24,6 +24,8 @@ tags:
     description: ZBX token economics
   - name: defi
     description: DeFi and liquidity stats
+  - name: admin
+    description: Admin panel operations
 paths:
   /healthz:
     get:
@@ -270,6 +272,367 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityPoint"
+
+  # ─── ADMIN ENDPOINTS ─────────────────────────────────────────────────────────
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Admin dashboard overview stats
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/validators:
+    get:
+      operationId: adminListValidators
+      tags: [admin]
+      summary: List all validators (admin)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, jailed]
+      responses:
+        "200":
+          description: Paginated validator list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminValidatorList"
+    post:
+      operationId: adminCreateValidator
+      tags: [admin]
+      summary: Add a new validator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidatorInput"
+      responses:
+        "201":
+          description: Validator created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminValidator"
+
+  /admin/validators/{id}:
+    patch:
+      operationId: adminUpdateValidator
+      tags: [admin]
+      summary: Update validator
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidatorUpdate"
+      responses:
+        "200":
+          description: Updated validator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminValidator"
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteValidator
+      tags: [admin]
+      summary: Remove a validator
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/tokens:
+    get:
+      operationId: adminListTokens
+      tags: [admin]
+      summary: List token registry (admin)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Token list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTokenList"
+    post:
+      operationId: adminCreateToken
+      tags: [admin]
+      summary: Add a token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenInput"
+      responses:
+        "201":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToken"
+
+  /admin/tokens/{id}:
+    patch:
+      operationId: adminUpdateToken
+      tags: [admin]
+      summary: Update token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenUpdate"
+      responses:
+        "200":
+          description: Updated token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminToken"
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteToken
+      tags: [admin]
+      summary: Remove a token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/ai-models:
+    get:
+      operationId: adminListAiModels
+      tags: [admin]
+      summary: List AI models registry
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: AI model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiModelList"
+    post:
+      operationId: adminCreateAiModel
+      tags: [admin]
+      summary: Register an AI model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiModelInput"
+      responses:
+        "201":
+          description: AI model registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiModel"
+
+  /admin/ai-models/{id}:
+    patch:
+      operationId: adminUpdateAiModel
+      tags: [admin]
+      summary: Update AI model
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiModelUpdate"
+      responses:
+        "200":
+          description: Updated AI model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAiModel"
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteAiModel
+      tags: [admin]
+      summary: Remove AI model
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: List admin users
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Admin user list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserList"
+    post:
+      operationId: adminCreateUser
+      tags: [admin]
+      summary: Create admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserInput"
+      responses:
+        "201":
+          description: Admin user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserRecord"
+
+  /admin/users/{id}:
+    patch:
+      operationId: adminUpdateUser
+      tags: [admin]
+      summary: Update admin user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: Updated admin user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserRecord"
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteUser
+      tags: [admin]
+      summary: Remove admin user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /admin/settings:
+    get:
+      operationId: adminListSettings
+      tags: [admin]
+      summary: List system settings
+      responses:
+        "200":
+          description: Settings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemSetting"
+
+  /admin/settings/{key}:
+    patch:
+      operationId: adminUpdateSetting
+      tags: [admin]
+      summary: Update a system setting by key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingUpdate"
+      responses:
+        "200":
+          description: Updated setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSetting"
+        "404":
+          description: Not found
 
 components:
   schemas:
@@ -755,4 +1118,566 @@ components:
         txCount:
           type: integer
         timestamp:
+          type: string
+
+    # ─── ADMIN SCHEMAS ─────────────────────────────────────────────────────────
+
+    AdminStats:
+      type: object
+      required:
+        - totalValidators
+        - activeValidators
+        - jailedValidators
+        - totalTokens
+        - totalAiModels
+        - totalAdminUsers
+        - totalStaked
+        - networkTps
+        - latestBlock
+        - uptimeAvg
+      properties:
+        totalValidators:
+          type: integer
+        activeValidators:
+          type: integer
+        jailedValidators:
+          type: integer
+        totalTokens:
+          type: integer
+        totalAiModels:
+          type: integer
+        totalAdminUsers:
+          type: integer
+        totalStaked:
+          type: string
+        networkTps:
+          type: number
+        latestBlock:
+          type: integer
+        uptimeAvg:
+          type: number
+
+    AdminValidator:
+      type: object
+      required:
+        - id
+        - address
+        - moniker
+        - status
+        - commission
+        - votingPower
+        - totalStaked
+        - selfStaked
+        - delegators
+        - uptime
+        - blocksProposed
+        - blocksSkipped
+        - rank
+        - website
+        - description
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        address:
+          type: string
+        moniker:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, jailed]
+        commission:
+          type: string
+        votingPower:
+          type: string
+        totalStaked:
+          type: string
+        selfStaked:
+          type: string
+        delegators:
+          type: integer
+        uptime:
+          type: string
+        blocksProposed:
+          type: integer
+        blocksSkipped:
+          type: integer
+        rank:
+          type: integer
+        website:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AdminValidatorList:
+      type: object
+      required: [validators, total, page, limit]
+      properties:
+        validators:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminValidator"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ValidatorInput:
+      type: object
+      required: [address, moniker]
+      properties:
+        address:
+          type: string
+        moniker:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, jailed]
+        commission:
+          type: string
+        votingPower:
+          type: string
+        totalStaked:
+          type: string
+        selfStaked:
+          type: string
+        delegators:
+          type: integer
+        uptime:
+          type: string
+        website:
+          type: string
+        description:
+          type: string
+        rank:
+          type: integer
+
+    ValidatorUpdate:
+      type: object
+      properties:
+        moniker:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, jailed]
+        commission:
+          type: string
+        votingPower:
+          type: string
+        totalStaked:
+          type: string
+        rank:
+          type: integer
+        website:
+          type: string
+        description:
+          type: string
+
+    AdminToken:
+      type: object
+      required:
+        - id
+        - symbol
+        - name
+        - type
+        - decimals
+        - totalSupply
+        - circulatingSupply
+        - priceUsd
+        - priceChange24h
+        - marketCap
+        - volume24h
+        - holders
+        - isActive
+        - isVerified
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [native, erc20, lp, wrapped]
+        contractAddress:
+          type: ["string", "null"]
+        decimals:
+          type: integer
+        totalSupply:
+          type: string
+        circulatingSupply:
+          type: string
+        priceUsd:
+          type: string
+        priceChange24h:
+          type: string
+        marketCap:
+          type: string
+        volume24h:
+          type: string
+        holders:
+          type: integer
+        logoUrl:
+          type: ["string", "null"]
+        description:
+          type: string
+        website:
+          type: string
+        isActive:
+          type: boolean
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AdminTokenList:
+      type: object
+      required: [tokens, total, page, limit]
+      properties:
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminToken"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    TokenInput:
+      type: object
+      required: [symbol, name]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [native, erc20, lp, wrapped]
+        contractAddress:
+          type: string
+        decimals:
+          type: integer
+        totalSupply:
+          type: string
+        circulatingSupply:
+          type: string
+        priceUsd:
+          type: string
+        marketCap:
+          type: string
+        volume24h:
+          type: string
+        holders:
+          type: integer
+        logoUrl:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+        isActive:
+          type: boolean
+        isVerified:
+          type: boolean
+
+    TokenUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [native, erc20, lp, wrapped]
+        priceUsd:
+          type: string
+        priceChange24h:
+          type: string
+        marketCap:
+          type: string
+        volume24h:
+          type: string
+        holders:
+          type: integer
+        isActive:
+          type: boolean
+        isVerified:
+          type: boolean
+        description:
+          type: string
+        website:
+          type: string
+        logoUrl:
+          type: string
+
+    AdminAiModel:
+      type: object
+      required:
+        - id
+        - modelIndex
+        - name
+        - category
+        - quantization
+        - paramsBillion
+        - gasPerCall
+        - latencyMs
+        - accuracyPct
+        - totalCalls
+        - totalRevenue
+        - isActive
+        - description
+        - publisherAddress
+        - publisherRevenuePct
+        - daoRevenuePct
+        - validatorRevenuePct
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        modelIndex:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [nlp, security, oracle, vision, audio, multimodal]
+        quantization:
+          type: string
+          enum: [INT4, INT8, FP16, FP32]
+        paramsBillion:
+          type: string
+        gasPerCall:
+          type: integer
+        latencyMs:
+          type: integer
+        accuracyPct:
+          type: string
+        totalCalls:
+          type: integer
+        totalRevenue:
+          type: string
+        isActive:
+          type: boolean
+        description:
+          type: string
+        publisherAddress:
+          type: string
+        publisherRevenuePct:
+          type: integer
+        daoRevenuePct:
+          type: integer
+        validatorRevenuePct:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AdminAiModelList:
+      type: object
+      required: [models, total, page, limit]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAiModel"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AiModelInput:
+      type: object
+      required: [modelIndex, name, category, quantization, gasPerCall]
+      properties:
+        modelIndex:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [nlp, security, oracle, vision, audio, multimodal]
+        quantization:
+          type: string
+          enum: [INT4, INT8, FP16, FP32]
+        paramsBillion:
+          type: string
+        gasPerCall:
+          type: integer
+        latencyMs:
+          type: integer
+        accuracyPct:
+          type: string
+        description:
+          type: string
+        publisherAddress:
+          type: string
+        publisherRevenuePct:
+          type: integer
+        daoRevenuePct:
+          type: integer
+        validatorRevenuePct:
+          type: integer
+        isActive:
+          type: boolean
+
+    AiModelUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [nlp, security, oracle, vision, audio, multimodal]
+        quantization:
+          type: string
+          enum: [INT4, INT8, FP16, FP32]
+        gasPerCall:
+          type: integer
+        latencyMs:
+          type: integer
+        accuracyPct:
+          type: string
+        isActive:
+          type: boolean
+        description:
+          type: string
+        publisherRevenuePct:
+          type: integer
+        daoRevenuePct:
+          type: integer
+        validatorRevenuePct:
+          type: integer
+
+    AdminUserRecord:
+      type: object
+      required:
+        - id
+        - username
+        - email
+        - role
+        - displayName
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [superadmin, admin, moderator, viewer]
+        displayName:
+          type: string
+        isActive:
+          type: boolean
+        lastLogin:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AdminUserList:
+      type: object
+      required: [users, total, page, limit]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserRecord"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AdminUserInput:
+      type: object
+      required: [username, email, password, role]
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [superadmin, admin, moderator, viewer]
+        displayName:
+          type: string
+        isActive:
+          type: boolean
+
+    AdminUserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [superadmin, admin, moderator, viewer]
+        displayName:
+          type: string
+        isActive:
+          type: boolean
+
+    SystemSetting:
+      type: object
+      required:
+        - id
+        - key
+        - value
+        - type
+        - label
+        - description
+        - category
+        - isPublic
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        value:
+          type: string
+        type:
+          type: string
+          enum: [string, number, boolean, json]
+        label:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        isPublic:
+          type: boolean
+        updatedAt:
+          type: string
+
+    SettingUpdate:
+      type: object
+      required: [value]
+      properties:
+        value:
           type: string

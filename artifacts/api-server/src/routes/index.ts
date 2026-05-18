@@ -7,6 +7,7 @@ import validatorsRouter from "./validators";
 import walletRouter from "./wallet";
 import tokensRouter from "./tokens";
 import defiRouter from "./defi";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(validatorsRouter);
 router.use(walletRouter);
 router.use(tokensRouter);
 router.use(defiRouter);
+router.use(adminRouter);
 
 export default router;
