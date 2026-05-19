@@ -429,18 +429,19 @@ impl BlockExecutor {
         db: DB,
         vs: &mut zbx_staking::ValidatorSet,
         staking_db: &zbx_storage::ZbxDb,
+        pipeline: Option<&zbx_staking::SlashingPipeline>,
     ) -> Result<ExecutionResult, ExecutionError>
     where
         DB: zbx_trie::TrieDB + Clone,
     {
-        Self::execute_inner(block, view, Some(db), Some((vs, staking_db)))
+        Self::execute_inner(block, view, Some(db), Some((vs, staking_db, pipeline)))
     }
 
     fn execute_inner<DB>(
         block: &Block,
         mut view: StateView,
         db: Option<DB>,
-        mut staking_ctx: Option<(&mut zbx_staking::ValidatorSet, &zbx_storage::ZbxDb)>,
+        mut staking_ctx: Option<(&mut zbx_staking::ValidatorSet, &zbx_storage::ZbxDb, Option<&zbx_staking::SlashingPipeline>)>,
     ) -> Result<ExecutionResult, ExecutionError>
     where
         DB: zbx_trie::TrieDB + Clone,
@@ -467,8 +468,8 @@ impl BlockExecutor {
             let result = if zbx_staking::is_staking_destination(tx.tx.to.as_ref())
                 && staking_ctx.is_some()
             {
-                let (vs, sdb) = staking_ctx.as_mut().expect("checked is_some");
-                let sr = execute_staking_tx(tx, &block.header, &mut view, *vs, sdb, &mut staking_delta)?;
+                let (vs, sdb, pipeline) = staking_ctx.as_mut().expect("checked is_some");
+                let sr = execute_staking_tx(tx, &block.header, &mut view, *vs, sdb, &mut staking_delta, *pipeline)?;
                 TxResult {
                     gas_used: sr.gas_used,
                     success: sr.success,
@@ -1041,6 +1042,7 @@ pub fn execute_staking_tx(
     vs: &mut zbx_staking::ValidatorSet,
     db: &zbx_storage::ZbxDb,
     delta: &mut zbx_staking::StakingDelta,
+    pipeline: Option<&zbx_staking::SlashingPipeline>,
 ) -> Result<StakingTxResult, ExecutionError> {
     let base_fee = header.base_fee_per_gas;
     let effective_price = tx.effective_gas_price(base_fee);
@@ -1084,11 +1086,31 @@ pub fn execute_staking_tx(
     let (success, dispatch_gas, error) =
         match zbx_staking::decode_staking_call(tx.tx.data.as_slice()) {
             Err(e) => (false, 0u64, Some(e.to_string())),
-            Ok(call) => match zbx_staking::dispatch_staking_tx(
-                &call, tx.from, value_u128, header.number, vs, db, delta, view,
-            ) {
-                Ok(g) => (true, g, None),
-                Err(e) => (false, 0u64, Some(e.to_string())),
+            Ok(call) => {
+                // FileAppeal needs the SlashingPipeline (registry +
+                // EvidenceStore), which `dispatch_staking_tx` does NOT
+                // accept. Route it to `dispatch_file_appeal_tx` here.
+                // When no pipeline is wired (legacy callers / tests
+                // without slashing context), the tx reverts cleanly.
+                if let zbx_types::staking_tx::StakingTx::FileAppeal { evidence_id } = &call {
+                    match pipeline {
+                        Some(p) => match zbx_staking::dispatch_file_appeal_tx(
+                            *evidence_id, tx.from, value_u128, header.number, p,
+                        ) {
+                            Ok(g) => (true, g, None),
+                            Err(e) => (false, 0u64, Some(e.to_string())),
+                        },
+                        None => (false, 0u64, Some(
+                            "FileAppeal tx received but executor has no SlashingPipeline wired".into())),
+                    }
+                } else {
+                    match zbx_staking::dispatch_staking_tx(
+                        &call, tx.from, value_u128, header.number, vs, db, delta, view,
+                    ) {
+                        Ok(g) => (true, g, None),
+                        Err(e) => (false, 0u64, Some(e.to_string())),
+                    }
+                }
             },
         };
 

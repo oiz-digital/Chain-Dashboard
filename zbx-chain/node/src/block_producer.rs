@@ -365,8 +365,13 @@ fn execute_and_commit_inner(
     // deferred-DB-write semantics provided by `StakingDelta`.
     let (exec, vs_after) = if let Some(vs_arc) = validator_set {
         let mut vs_clone = vs_arc.read().clone();
+        // `pipeline = None` until the node-level wiring lands: when an
+        // operator constructs `Arc<SlashingPipeline>` at boot and passes
+        // a borrow here, `StakingTx::FileAppeal` txs will route to
+        // `dispatch_file_appeal_tx`. With None they revert cleanly with
+        // an explanatory receipt error, mirroring bad-payload behaviour.
         let exec = BlockExecutor::execute_with_staking(
-            &block, view, adapter.clone(), &mut vs_clone, storage.as_ref(),
+            &block, view, adapter.clone(), &mut vs_clone, storage.as_ref(), None,
         ).map_err(|e| format!("execute: {e}"))?;
         (exec, Some(vs_clone))
     } else {

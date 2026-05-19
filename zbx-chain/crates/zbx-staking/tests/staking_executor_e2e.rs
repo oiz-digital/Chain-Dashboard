@@ -154,6 +154,7 @@ fn block_executor_routes_staking_txs_and_mutates_validator_set() {
         MemoryTrieDB::default(),
         &mut vs,
         &db,
+        None,
     ).expect("execute_with_staking must succeed");
 
     // ── Assert ValidatorSet was mutated by tx #0 (RegisterValidator) ──
