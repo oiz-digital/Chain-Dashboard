@@ -80,9 +80,147 @@ use zbx_storage::ZbxDb;
 use zbx_types::{
     address::Address,
     block::{Block, BlockBody, BlockHeader},
+    governance::{ProposalId, ProposalRegistry},
+    module_version::ModuleVersion,
     transaction::SignedTransaction,
+    version_registry::{RegistryUpgrade, VersionRegistry},
     H256, BLOCK_GAS_LIMIT,
 };
+
+// ─── On-chain governance state (ZEP execution) ──────────────────────────────
+// Two well-known keys in the `Metadata` CF carry the canonical
+// `VersionRegistry` and `ProposalRegistry` for the chain. Stored as
+// bincode (matches the slashing-pipeline convention) so schema evolution
+// is additive-only on the wire.
+//
+// Both registries are written in a SINGLE fsynced RocksDB WriteBatch
+// (`put_metadata_batch_synced`) so a torn half-write is impossible: a
+// crash either leaves both old values on disk or both new ones.
+//
+// Crash-recovery semantics:
+//   * block-tip is fsynced first (existing `put_block` path);
+//   * staking-delta is fsynced second (existing `apply_staking_delta`);
+//   * governance is fsynced third (this hook).
+// If the process dies between (2) and (3), the block IS on disk but
+// the governance promotion isn't — on restart the producer re-loads
+// the previous `ProposalRegistry`, the same proposals are still
+// `Scheduled`, and `ready_to_execute(N) ⊇ ready_to_execute(prev_N)` so
+// re-application at the next block is monotonically equivalent for
+// the module-version-bump payloads this hook supports today
+// (`ModuleVersions::set` rejects downgrades, so a redundant re-apply
+// is either a no-op or an erroring no-op). The producer therefore
+// remains deterministic across restarts without an explicit reconcile.
+const GOVERNANCE_META_VERSION_REGISTRY:  &[u8] = b"governance/version_registry";
+const GOVERNANCE_META_PROPOSAL_REGISTRY: &[u8] = b"governance/proposal_registry";
+
+/// Load the canonical `VersionRegistry` from metadata, defaulting to the
+/// empty (genesis) registry when no governance proposal has yet been
+/// executed. Decode failure is fail-closed: a corrupted registry must
+/// not be silently overwritten — better to halt consensus than to
+/// silently re-apply every historical upgrade on top of a default.
+fn load_version_registry(storage: &ZbxDb) -> Result<VersionRegistry, String> {
+    match storage.get_metadata(GOVERNANCE_META_VERSION_REGISTRY) {
+        Ok(Some(bytes)) => bincode::deserialize(&bytes)
+            .map_err(|e| format!("version_registry decode: {e}")),
+        Ok(None) => Ok(VersionRegistry::default()),
+        Err(e)   => Err(format!("version_registry read: {e}")),
+    }
+}
+
+fn load_proposal_registry(storage: &ZbxDb) -> Result<ProposalRegistry, String> {
+    match storage.get_metadata(GOVERNANCE_META_PROPOSAL_REGISTRY) {
+        Ok(Some(bytes)) => bincode::deserialize(&bytes)
+            .map_err(|e| format!("proposal_registry decode: {e}")),
+        Ok(None) => Ok(ProposalRegistry::new()),
+        Err(e)   => Err(format!("proposal_registry read: {e}")),
+    }
+}
+
+fn persist_governance_state(
+    storage: &ZbxDb,
+    vreg: &VersionRegistry,
+    preg: &ProposalRegistry,
+) -> Result<(), String> {
+    let v = bincode::serialize(vreg)
+        .map_err(|e| format!("version_registry encode: {e}"))?;
+    let p = bincode::serialize(preg)
+        .map_err(|e| format!("proposal_registry encode: {e}"))?;
+    // SINGLE fsynced write-batch — both keys land atomically, no torn
+    // half-write possible. See `ZbxDb::put_metadata_batch_synced`.
+    storage
+        .put_metadata_batch_synced(&[
+            (GOVERNANCE_META_VERSION_REGISTRY,  v),
+            (GOVERNANCE_META_PROPOSAL_REGISTRY, p),
+        ])
+        .map_err(|e| format!("governance state write: {e}"))
+}
+
+/// Apply every governance proposal whose `activation_block ≤ current_block`
+/// and whose status is `Scheduled`. Returns `true` iff the registries
+/// changed (i.e. at least one proposal was promoted to `Executed` or
+/// `Failed`). The caller is responsible for persisting the registries
+/// when this returns `true`.
+///
+/// `UpgradeProposal` currently encodes only `(module_name, new_version)` —
+/// not a full `RegistryUpgrade` payload — so this hook synthesises a
+/// minimal upgrade containing just the module-version bump. Activation
+/// schedules, feature flags, and storage-version bumps require a future
+/// ZEP that extends `UpgradeProposal` with an `upgrade: RegistryUpgrade`
+/// field. Documented as the follow-up to this wiring.
+///
+/// FAIL-CLOSED semantics: if `RegistryUpgrade::apply` returns `Err`
+/// (e.g. monotonicity violation), the proposal is marked `Failed` and
+/// the registry is left untouched. The block still commits — governance
+/// failure is recorded on-chain, not propagated as a consensus halt.
+fn apply_ready_governance(
+    vreg: &mut VersionRegistry,
+    preg: &mut ProposalRegistry,
+    current_block: u64,
+) -> bool {
+    let ready: Vec<ProposalId> = preg
+        .ready_to_execute(current_block)
+        .map(|p| p.id)
+        .collect();
+    if ready.is_empty() {
+        return false;
+    }
+    for id in ready {
+        // Snapshot the fields we need so we can mutate preg afterwards
+        // without holding an immutable borrow.
+        let (module_name, new_version) = match preg.get(id) {
+            Some(p) => (p.module_name.clone(), p.new_version),
+            None    => continue, // unreachable: ready_to_execute returned this id
+        };
+        let upgrade = match ModuleVersion::new(module_name, new_version) {
+            Ok(mv) => RegistryUpgrade {
+                set_modules: vec![mv],
+                ..Default::default()
+            },
+            Err(e) => {
+                warn!(?id, error = %e, "governance: module_version construct failed");
+                if let Some(p) = preg.get_mut(id) {
+                    let _ = p.mark_failed();
+                }
+                continue;
+            }
+        };
+        match vreg.apply(&upgrade) {
+            Ok(()) => {
+                if let Some(p) = preg.get_mut(id) {
+                    let _ = p.mark_executed();
+                }
+                info!(?id, height = current_block, "governance upgrade executed");
+            }
+            Err(e) => {
+                warn!(?id, error = %e, "governance upgrade rejected; marking proposal Failed");
+                if let Some(p) = preg.get_mut(id) {
+                    let _ = p.mark_failed();
+                }
+            }
+        }
+    }
+    true
+}
 
 /// Configuration for the producer.
 #[derive(Debug, Clone)]
@@ -454,12 +592,45 @@ fn execute_and_commit_inner(
             .map_err(|e| format!("apply_staking_delta: {e}"))?;
     }
 
-    // Only NOW — after every fallible commit step has succeeded — swap
-    // the executed ValidatorSet clone back into the shared live state.
-    // Any earlier `?` would have dropped `vs_after` with the function
-    // frame and left `validator_set` untouched.
+    // Swap the executed `ValidatorSet` clone back into shared live
+    // state. This MUST happen before the governance hook below: the
+    // swap is a pure in-memory reflection of state already durable on
+    // disk (block + staking-delta both fsynced above), so deferring it
+    // past a later fallible step would create a committed-block /
+    // stale-in-memory split if that step returned `Err`. Any earlier
+    // `?` would have dropped `vs_after` with the function frame and
+    // left `validator_set` untouched.
     if let (Some(vs_arc), Some(vs_new)) = (validator_set, vs_after) {
         *vs_arc.write() = vs_new;
+    }
+
+    // ─── ZEP execution hook ────────────────────────────────────────────
+    // Apply any on-chain governance proposals whose activation block has
+    // arrived. Runs AFTER block + staking-delta + validator-set swap
+    // are all durable / consistent so a governance I/O error returning
+    // `Err` here cannot poison shared in-memory consensus state — the
+    // restart path will re-read the same registries and re-apply
+    // idempotently (see crash-recovery semantics in the module header).
+    //
+    // FAIL-CLOSED on I/O: a registry decode or write error returns
+    // `Err` from `execute_and_commit_inner`. Logical-apply failures
+    // (e.g. monotonicity violation on the requested module version)
+    // mark the offending proposal `Failed` and continue — governance
+    // mistakes are recorded on-chain, not propagated as a halt.
+    //
+    // Note: today the proposal write-path (submit/vote/finalize) does
+    // not yet exist on the on-chain tx surface — `ready_to_execute`
+    // will always return empty until a future ZEP adds a
+    // `StakingTx::ProposeUpgrade` / `CastVote` dispatcher and a
+    // `try_finalize` tick. This hook is the consumer side of that
+    // pipeline; wiring it now means the producer is upgrade-ready the
+    // moment those txs land.
+    {
+        let mut vreg = load_version_registry(storage)?;
+        let mut preg = load_proposal_registry(storage)?;
+        if apply_ready_governance(&mut vreg, &mut preg, block.header.number) {
+            persist_governance_state(storage, &vreg, &preg)?;
+        }
     }
 
     // Evict included txs and update base-fee feed.

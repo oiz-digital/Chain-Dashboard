@@ -462,6 +462,28 @@ impl ZbxDb {
         self.write(batch)
     }
 
+    /// Write multiple `(key, value)` pairs into the `Metadata` CF as a
+    /// SINGLE fsynced RocksDB write batch.
+    ///
+    /// Both keys land atomically (RocksDB write-batch semantics: all or
+    /// nothing on crash), and the batch is fsynced (`write_synced`) so
+    /// power loss between the call returning and the next operation
+    /// cannot lose either entry. This is the right primitive for
+    /// metadata pairs that must move together — e.g. the governance
+    /// `VersionRegistry` + `ProposalRegistry` couple, where a torn
+    /// half-write would let the chain re-execute an already-applied
+    /// proposal on restart.
+    pub fn put_metadata_batch_synced(
+        &self,
+        pairs: &[(&[u8], Vec<u8>)],
+    ) -> Result<(), StorageError> {
+        let mut batch = WriteBatch::new();
+        for (k, v) in pairs {
+            batch.put(Column::Metadata, k.to_vec(), v.clone());
+        }
+        self.write_synced(batch)
+    }
+
     // -----------------------------------------------------------------------
     // Trie-node store (S33-state-root W3b)
     // -----------------------------------------------------------------------
