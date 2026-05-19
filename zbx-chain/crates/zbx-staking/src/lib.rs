@@ -39,16 +39,24 @@ pub use staking_escrow::{EscrowRegistry, EscrowEntry, UnbondingEntry};
 pub use slashing_v2::{
     SlashingRegistryV2, SlashEvidenceRecord, SlashEvidenceV2,
     EvidenceStatus, EvidenceType, DoubleSignProof, InvalidBlockProof, BlockViolation,
+    SubmitOutcome, FinalizedSlash,
     base_slash_bps, correlated_slash_bps, slash_amount_wei,
     APPEAL_WINDOW_BLOCKS, WHISTLEBLOWER_REWARD_BPS, EVIDENCE_BOND_WEI,
 };
 pub use validator::{Validator, ValidatorSet, ValidatorStatus};
-pub use persistence::{EvidenceStore, evidence_to_double_sign, evidence_id};
-pub use pipeline::{SlashingPipeline, AppliedSlash, apply_slash_burn};
+pub use persistence::{
+    EvidenceStore, BondEntry, BondKind, evidence_to_double_sign, evidence_id,
+};
+pub use pipeline::{
+    SlashingPipeline, AppliedSlash, AppliedOverturn,
+    apply_slash_burn, apply_slash_burn_v2,
+};
 pub use tx_handler::{
-    BalanceAccess, decode_staking_call, dispatch_staking_tx, is_staking_destination,
+    BalanceAccess, decode_staking_call, dispatch_staking_tx, dispatch_file_appeal_tx,
+    is_staking_destination,
     STAKING_GAS_REGISTER, STAKING_GAS_DELEGATE, STAKING_GAS_UNDELEGATE,
     STAKING_GAS_WITHDRAW, STAKING_GAS_CLAIM, STAKING_GAS_CLAIM_DELEGATOR,
+    STAKING_GAS_FILE_APPEAL,
 };
 pub use delta::StakingDelta;
 

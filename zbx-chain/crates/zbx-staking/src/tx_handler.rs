@@ -5,10 +5,15 @@
 
 use crate::delta::StakingDelta;
 use crate::error::StakingError;
+use crate::persistence::{BondEntry, BondKind};
+use crate::pipeline::SlashingPipeline;
 use crate::validator::ValidatorSet;
 use zbx_storage::ZbxDb;
 use zbx_types::address::Address;
-use zbx_types::staking_tx::{StakingTx, STAKING_PRECOMPILE_ADDR, UNBONDING_PERIOD_BLOCKS};
+use zbx_types::staking_tx::{
+    StakingTx, STAKING_PRECOMPILE_ADDR, UNBONDING_PERIOD_BLOCKS, APPEAL_BOND_WEI,
+};
+use zbx_types::H256;
 use zbx_crypto::bls::{BlsPubKey, BlsSignature};
 use tracing::{info, warn};
 
@@ -18,6 +23,9 @@ pub const STAKING_GAS_UNDELEGATE: u64        =  80_000;
 pub const STAKING_GAS_WITHDRAW: u64          =  50_000;
 pub const STAKING_GAS_CLAIM: u64             =  40_000;
 pub const STAKING_GAS_CLAIM_DELEGATOR: u64   =  50_000;
+/// `FileAppeal` is more expensive than a Delegate because it touches
+/// the slashing registry + records (≥2 disk writes: record + bond).
+pub const STAKING_GAS_FILE_APPEAL: u64       = 150_000;
 
 /// Trait for reading and mutating account balances. Implemented by
 /// `zbx-execution::StateView`; tests use a HashMap shim.
@@ -220,6 +228,17 @@ pub fn dispatch_staking_tx<B: BalanceAccess>(
             Ok(STAKING_GAS_CLAIM)
         }
 
+        StakingTx::FileAppeal { .. } => {
+            // FileAppeal needs access to the slashing pipeline
+            // (registry + EvidenceStore), which is not part of this
+            // dispatcher's signature. The block executor MUST route
+            // FileAppeal to `dispatch_file_appeal_tx` BEFORE calling
+            // `dispatch_staking_tx`. Reaching this arm is a routing
+            // bug, never a user-input bug.
+            Err(StakingError::BadPayload(
+                "FileAppeal must be dispatched via dispatch_file_appeal_tx".into()))
+        }
+
         StakingTx::ClaimDelegatorRewards { validator } => {
             // STK-RWD-06: delegators claim their proportional share of the
             // validator's `delegator_reward_pool`.  The carrying tx value MUST
@@ -255,6 +274,71 @@ pub fn dispatch_staking_tx<B: BalanceAccess>(
 #[inline]
 pub fn is_staking_destination(to: Option<&Address>) -> bool {
     matches!(to, Some(a) if *a == STAKING_PRECOMPILE_ADDR)
+}
+
+/// Dispatch an on-chain `FileAppeal` staking transaction.
+///
+/// The slashed validator (and ONLY they) may appeal a Pending slash
+/// record by sending a `FileAppeal` tx to `STAKING_PRECOMPILE_ADDR`
+/// with `value == APPEAL_BOND_WEI`. The bond is escrowed at the
+/// precompile (transparently, since the tx machinery already moves
+/// `sent_value_wei` into the staking-precompile balance before this
+/// handler runs); we record the bond in the on-disk ledger so that
+/// `SlashingPipeline::overturn_and_refund` can refund it on a
+/// successful overturn and so a process crash between filing and
+/// finalize does not lose the deposit.
+///
+/// Validation:
+///   * `sent_value_wei == APPEAL_BOND_WEI`
+///   * `sender == record.offender`           (only the slashed validator may appeal)
+///   * `record.status == Pending`            (enforced inside `file_appeal`)
+///   * `current_height <= record.appeal_deadline` (enforced inside `file_appeal`)
+pub fn dispatch_file_appeal_tx(
+    evidence_id:    H256,
+    sender:         Address,
+    sent_value_wei: u128,
+    current_height: u64,
+    pipeline:       &SlashingPipeline,
+) -> Result<u64, StakingError> {
+    if sent_value_wei != APPEAL_BOND_WEI {
+        return Err(StakingError::AppealBondMismatch {
+            got:  sent_value_wei,
+            need: APPEAL_BOND_WEI,
+        });
+    }
+    // Flip status in the registry (also enforces sender == offender,
+    // status == Pending, and current_block <= appeal_deadline).
+    let updated_record = {
+        let mut reg = pipeline.registry().lock();
+        reg.file_appeal_for_tx(evidence_id, sender, current_height)?
+    };
+    // Persist the appeal bond ledger entry FIRST, then the record.
+    // Rationale (architect-review follow-up):
+    //   * If `put_bond` succeeds and `put_record` then fails, the
+    //     registry's in-memory `Appealed` flip is lost on restart
+    //     (registry rehydrates from disk = `Pending`). On retry,
+    //     `file_appeal_for_tx` flips again and `put_bond` overwrites
+    //     idempotently (same key, same value).
+    //   * The reverse order (`put_record` first) was unsafe: a crash
+    //     between record-persist and bond-persist would leave an
+    //     Appealed record with NO bond on disk — `overturn_and_refund`
+    //     would then credit `appeal_bond_refunded = 0`, silently
+    //     stealing the offender's appeal bond.
+    // Bond is keyed by (record_id, sender) — distinct from any
+    // whistleblower bonds on the same record (those are keyed by
+    // their respective reporter addresses).
+    pipeline.store().put_bond(&evidence_id, &sender, &BondEntry {
+        wei:  APPEAL_BOND_WEI,
+        kind: BondKind::Appeal,
+    })?;
+    pipeline.store().put_record(&updated_record)?;
+    info!(
+        record_id = ?evidence_id,
+        offender  = ?sender,
+        bond_wei  = APPEAL_BOND_WEI,
+        "on-chain appeal filed — bond escrowed at staking precompile"
+    );
+    Ok(STAKING_GAS_FILE_APPEAL)
 }
 
 #[cfg(test)]

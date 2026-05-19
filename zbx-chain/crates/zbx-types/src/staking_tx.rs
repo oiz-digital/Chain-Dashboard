@@ -12,6 +12,7 @@
 //! malformed payloads at admission.
 
 use crate::address::Address;
+use crate::H256;
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -37,6 +38,13 @@ const TAG_UNDELEGATE: u8 = 2;
 const TAG_WITHDRAW: u8 = 3;
 const TAG_CLAIM_REWARDS: u8 = 4;
 const TAG_CLAIM_DELEGATOR_REWARDS: u8 = 5;
+const TAG_FILE_APPEAL: u8 = 6;
+
+/// Appeal bond escrowed on `FileAppeal`: 1000 ZBX in wei.
+/// Refunded on successful overturn; forfeited (burnt) if the appeal
+/// is rejected. Larger than the whistleblower bond to discourage
+/// frivolous appeals from validators trying to delay finalization.
+pub const APPEAL_BOND_WEI: u128 = 1_000 * 1_000_000_000_000_000_000u128;
 
 /// On-chain staking call payload.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +100,17 @@ pub enum StakingTx {
     ClaimDelegatorRewards {
         validator: Address,
     },
+
+    /// File an on-chain appeal against a pending slash record.
+    ///
+    /// Sender MUST equal the slash record's offender address. The
+    /// carrying transaction's `value` MUST equal `APPEAL_BOND_WEI`
+    /// (escrowed at `STAKING_PRECOMPILE_ADDR`); refunded on successful
+    /// overturn, forfeited on rejection. Filing is only valid while
+    /// the record is in `Pending` status and before its `appeal_deadline`.
+    FileAppeal {
+        evidence_id: H256,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -143,6 +162,11 @@ impl Encodable for StakingTx {
                 s.append(&TAG_CLAIM_DELEGATOR_REWARDS);
                 s.append(&&validator.0[..]);
             }
+            StakingTx::FileAppeal { evidence_id } => {
+                s.begin_list(2);
+                s.append(&TAG_FILE_APPEAL);
+                s.append(&&evidence_id.0[..]);
+            }
         }
     }
 }
@@ -181,6 +205,9 @@ impl Decodable for StakingTx {
             }),
             TAG_CLAIM_DELEGATOR_REWARDS if n == 2 => Ok(StakingTx::ClaimDelegatorRewards {
                 validator: address_at(&rlp.at(1)?)?,
+            }),
+            TAG_FILE_APPEAL if n == 2 => Ok(StakingTx::FileAppeal {
+                evidence_id: H256(fixed_bytes::<32>(&rlp.at(1)?)?),
             }),
             _ => Err(DecoderError::Custom("StakingTx: unknown tag or arity")),
         }

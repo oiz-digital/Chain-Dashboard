@@ -15,11 +15,22 @@ pub enum ValidatorStatus {
     /// Active participant in consensus.
     Active,
     /// Temporarily excluded from consensus (slashing or liveness fault).
+    /// Can re-enter the active set after operator-driven unjail.
     Jailed,
     /// Voluntarily unbonding from the network.
     Unbonding { until_block: u64 },
     /// Fully withdrawn.
     Inactive,
+    /// **Permanent** exclusion from consensus, set by the slashing pipeline
+    /// on repeat or catastrophic offence (≥2 confirmed slashes lifetime,
+    /// or any `InvalidBlock` evidence). Tombstoned validators:
+    ///   * are never eligible for election (`is_eligible() == false`)
+    ///   * cannot receive new delegations
+    ///   * cannot be revived by operator status edits (every read path
+    ///     checks Tombstoned explicitly)
+    /// Existing delegators can still undelegate / withdraw matured
+    /// unbondings normally — only the validator's consensus role ends.
+    Tombstoned,
 }
 
 /// A single validator's on-chain state.
@@ -98,6 +109,7 @@ impl Validator {
                 ValidatorStatus::Jailed
                     | ValidatorStatus::Inactive
                     | ValidatorStatus::Unbonding { .. }
+                    | ValidatorStatus::Tombstoned
             )
     }
 
@@ -297,6 +309,7 @@ impl ValidatorSet {
             ValidatorStatus::Jailed
                 | ValidatorStatus::Inactive
                 | ValidatorStatus::Unbonding { .. }
+                | ValidatorStatus::Tombstoned
         ) {
             return Err(StakingError::Jailed);
         }
@@ -346,6 +359,9 @@ impl ValidatorSet {
         // STK-VAL-01: Deactivate removed validators — but ONLY if they are
         // currently Active. Overriding Unbonding or Inactive with Pending would
         // reset in-progress withdrawals and break the unbonding state machine.
+        // Tombstoned is also preserved — it is permanent and election must
+        // never demote it back to Pending (which would allow re-eligibility
+        // if stake later returned above MIN_SELF_STAKE).
         for addr in &self.active_set {
             if !new_set.contains(addr) {
                 if let Some(v) = self.validators.get_mut(addr) {
@@ -355,10 +371,14 @@ impl ValidatorSet {
                 }
             }
         }
-        // Activate newly elected validators
+        // Activate newly elected validators — except Tombstoned validators,
+        // which must never be reactivated. `is_eligible` already excludes
+        // them from `eligible` above, so this is a defence-in-depth guard.
         for addr in &new_set {
             if let Some(v) = self.validators.get_mut(addr) {
-                v.status = ValidatorStatus::Active;
+                if v.status != ValidatorStatus::Tombstoned {
+                    v.status = ValidatorStatus::Active;
+                }
             }
         }
         self.active_set = new_set.clone();

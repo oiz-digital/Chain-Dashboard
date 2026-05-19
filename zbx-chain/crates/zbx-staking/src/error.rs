@@ -81,4 +81,23 @@ pub enum StakingError {
     /// surfaced to avoid silent under-credit.
     #[error("staking escrow underflow: have {have} wei, need {need} wei")]
     EscrowUnderflow { have: u128, need: u128 },
+
+    // ── Slashing-upgrade variants ────────────────────────────────────────────
+
+    /// Caller tried to file a `FileAppeal` against a slash record whose
+    /// offender address does not match the transaction sender. Only the
+    /// validator under slash may appeal their own record.
+    #[error("appeal must be filed by the offender (sender ≠ offender)")]
+    AppealNotByOffender,
+
+    /// Sender did not include the required appeal bond wei in the
+    /// carrying transaction's value.
+    #[error("appeal bond mismatch: got {got} wei, need {need} wei")]
+    AppealBondMismatch { got: u128, need: u128 },
+
+    /// `overturn_and_refund` was called on a record that is not in
+    /// `Appealed` status. Overturn is only valid after a successful
+    /// governance vote on an appealed record.
+    #[error("overturn not allowed: record is not in Appealed status")]
+    OverturnNotAllowed,
 }

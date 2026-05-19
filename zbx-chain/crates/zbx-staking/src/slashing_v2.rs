@@ -17,6 +17,17 @@ use std::collections::HashMap;
 use sha3::{Digest, Sha3_256};
 use tracing::{info, warn};
 
+/// Per-record slash finalization result returned by
+/// `SlashingRegistryV2::finalize_slash`. Carries the total burn plus
+/// the per-reporter reward split (sums to `total_reward`, modulo
+/// integer-division remainder ≤ N-1 wei dropped at the boundary).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinalizedSlash {
+    pub slash_wei:    u128,
+    pub total_reward: u128,
+    pub splits:       Vec<(Address, u128)>,
+}
+
 /// Appeal window in blocks (~10 days at 5s/block).
 pub const APPEAL_WINDOW_BLOCKS: u64 = 172_800;
 /// Whistleblower reward: 5% of slashed amount (in basis points).
@@ -193,6 +204,8 @@ pub struct SlashEvidenceRecord {
     pub id:              H256,
     pub evidence_type:   EvidenceType,
     pub offender:        Address,
+    /// First reporter (kept for backward compat & legacy single-witness paths).
+    /// Co-witness reporters are appended to `reporters` instead.
     pub submitted_by:    Address,
     pub submit_block:    u64,
     pub evidence:        SlashEvidenceV2,
@@ -202,7 +215,72 @@ pub struct SlashEvidenceRecord {
     /// Slash after correlated multiplier
     pub final_slash_wei: u128,
     pub appeal_deadline: u64,
+    /// **Slashing-upgrade**: full list of co-witness reporters of the
+    /// SAME equivocation. The first entry is always `submitted_by`;
+    /// each subsequent honest reporter that re-submits the same
+    /// evidence is appended here (no duplicates). The whistleblower
+    /// reward is split **equally** across all entries at finalization
+    /// so the second honest reporter is no longer dropped silently.
+    ///
+    /// `#[serde(default)]` keeps backward compatibility with pre-
+    /// upgrade serialised records (they deserialize with an empty
+    /// vec, and the pipeline falls back to `submitted_by` alone).
+    #[serde(default)]
+    pub reporters:       Vec<Address>,
+    /// **Slashing-upgrade**: tracks whether the slashing pipeline was
+    /// the cause of the offender's `Jailed` status. Set true when
+    /// `apply_slash_burn` transitions the validator from `Active` to
+    /// `Jailed` for THIS record. Used by `overturn_and_refund` to
+    /// know whether to un-jail on overturn (we must not un-jail a
+    /// validator who was jailed for an *independent* reason —
+    /// liveness fault, manual operator jail, etc.).
+    #[serde(default)]
+    pub jailed_by_slash: bool,
+    /// **Slashing-upgrade** (crash-consistency follow-up): two-phase
+    /// finalize marker. `finalize_slash` flips status → Confirmed
+    /// with `burn_applied=false`; the pipeline only sets this `true`
+    /// AFTER the validator-set burn + reward-credit pass succeeds
+    /// and persists the record a second time. On node restart the
+    /// pipeline scans for `Confirmed && !burn_applied` and replays
+    /// the burn — splits are recomputed deterministically from
+    /// `submitted_by + reporters + final_slash_wei`, so the replay
+    /// produces byte-identical results to the original pass.
+    ///
+    /// `#[serde(default)]` (= `false`) is backward-compatible with
+    /// pre-upgrade Confirmed records on disk. Those records belong
+    /// to a prior process that already applied the burn (legacy code
+    /// did burn-then-persist), so to avoid re-burning legacy stake
+    /// the replay path additionally gates on
+    /// `EvidenceStore::was_confirmed_pre_upgrade()` — see
+    /// `SlashingPipeline::tick_finalize` for the full rule.
+    #[serde(default)]
+    pub burn_applied: bool,
+    /// **Slashing-upgrade — replay-safety discriminator.**
+    ///
+    /// `0` = pre-upgrade record written by the legacy burn-then-persist
+    /// path. Those records ALREADY had their burn applied before they
+    /// were persisted, so the two-phase replay loop must NOT touch
+    /// them (even though `burn_applied` deserializes false by default).
+    ///
+    /// `1` = upgraded record written by the new persist-Confirmed-then-
+    /// burn-then-re-persist path. Only `version == 1` records are
+    /// eligible for the crash-recovery replay; the replay loop filters
+    /// strictly on `version >= 1 && !burn_applied`.
+    ///
+    /// This is a stronger guard than the `self_stake >= final_slash_wei`
+    /// heuristic (which fails for legacy 5%-slashed validators whose
+    /// remaining stake still exceeds the slash amount).
+    ///
+    /// `#[serde(default)]` (= `0`) is what makes pre-upgrade records
+    /// safe by construction: they are explicitly excluded from replay.
+    #[serde(default)]
+    pub format_version: u8,
 }
+
+/// Current on-disk format version for SlashEvidenceRecord. Bumped
+/// whenever a new field is added that the crash-recovery replay
+/// loop depends on for correctness.
+pub const SLASH_RECORD_FORMAT_VERSION: u8 = 1;
 
 impl SlashEvidenceRecord {
     fn compute_id(evidence: &SlashEvidenceV2, offender: &Address, submit_block: u64) -> H256 {
@@ -293,13 +371,43 @@ pub fn slash_amount_wei(
         .unwrap_or_else(|| (stake_wei / 10_000).saturating_mul(slash_bps))
 }
 
+/// Outcome of a successful `submit_evidence` call.
+///
+/// Distinguishes a brand-new submission from a co-witness merge so
+/// the pipeline can persist the right bonds and tell callers whether
+/// a new whistleblower joined an existing record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubmitOutcome {
+    /// First submission of this evidence — `record_id` is fresh.
+    NewRecord(H256),
+    /// Same evidence already submitted by another reporter — the
+    /// caller has been added to `reporters` and will share the
+    /// whistleblower reward at finalization. Returns the existing id.
+    CoWitnessAdded(H256),
+    /// Same `(offender, submit_block, evidence_type)` AND the caller
+    /// was already in `reporters`. Pure no-op idempotent re-detection.
+    AlreadyRecorded(H256),
+}
+
+impl SubmitOutcome {
+    pub fn record_id(&self) -> H256 {
+        match self {
+            SubmitOutcome::NewRecord(id)
+            | SubmitOutcome::CoWitnessAdded(id)
+            | SubmitOutcome::AlreadyRecorded(id) => *id,
+        }
+    }
+}
+
 /// The on-chain slashing registry (ZEP-023).
 pub struct SlashingRegistryV2 {
     /// All evidence records by ID
     records: HashMap<H256, SlashEvidenceRecord>,
     /// Slashes confirmed this epoch per validator
     epoch_slash_count: HashMap<(u64, Address), u64>,
-    /// Bonds deposited by whistleblowers
+    /// Bonds deposited by whistleblowers (legacy in-memory mirror —
+    /// authoritative source is now the `SlashingBonds` column family
+    /// in `ZbxDb`, accessed through `EvidenceStore`).
     pending_bonds: HashMap<H256, (Address, u128)>,
     total_validators: u64,
 }
@@ -314,7 +422,21 @@ impl SlashingRegistryV2 {
         }
     }
 
-    /// Submit new slash evidence. Submitter must provide EVIDENCE_BOND_WEI.
+    /// Submit new slash evidence — with co-witness support.
+    ///
+    /// Returns a `SubmitOutcome` that distinguishes:
+    ///   * `NewRecord(id)`        — first time this evidence is seen.
+    ///   * `CoWitnessAdded(id)`   — duplicate evidence from a NEW reporter;
+    ///     the caller has been appended to the record's `reporters` vec
+    ///     and will share the whistleblower reward at finalization.
+    ///   * `AlreadyRecorded(id)`  — duplicate evidence from the SAME
+    ///     reporter; idempotent no-op.
+    ///
+    /// **Slashing-upgrade**: pre-upgrade this returned
+    /// `Err(DuplicateEvidence)` whenever the (offender, block, type)
+    /// id collided, silently dropping the second honest reporter and
+    /// keeping their bond locked with no reward share. That behaviour
+    /// is gone — the second reporter is now first-class.
     pub fn submit_evidence(
         &mut self,
         evidence:        SlashEvidenceV2,
@@ -322,16 +444,35 @@ impl SlashingRegistryV2 {
         current_block:   u64,
         current_epoch:   u64,
         offender_stake:  u128,
-    ) -> Result<H256, StakingError> {
+    ) -> Result<SubmitOutcome, StakingError> {
         let offender = evidence.offender()
             .ok_or_else(|| StakingError::InvalidEvidence("cannot determine offender".into()))?;
 
         let evidence_type = evidence.evidence_type();
         let id = SlashEvidenceRecord::compute_id(&evidence, &offender, current_block);
 
-        // Prevent duplicate submissions
-        if self.records.contains_key(&id) {
-            return Err(StakingError::DuplicateEvidence);
+        // Co-witness path: same evidence id already exists.
+        if let Some(existing) = self.records.get_mut(&id) {
+            // Only allow co-witness while the record is still Pending —
+            // once it transitions to Confirmed/Overturned/Rejected the
+            // reward split is fixed and adding reporters would break
+            // accounting.
+            if existing.status != EvidenceStatus::Pending {
+                return Ok(SubmitOutcome::AlreadyRecorded(id));
+            }
+            // Idempotent on (record_id, reporter): same submitter
+            // re-detecting their own evidence is a no-op.
+            let already_listed = existing.submitted_by == submitted_by
+                || existing.reporters.iter().any(|r| *r == submitted_by);
+            if already_listed {
+                return Ok(SubmitOutcome::AlreadyRecorded(id));
+            }
+            existing.reporters.push(submitted_by);
+            self.pending_bonds.insert(id, (submitted_by, EVIDENCE_BOND_WEI));
+            info!(evidence_id = ?id, co_witness = ?submitted_by,
+                  total_reporters = existing.reporters.len() + 1,
+                  "co-witness reporter added — will share whistleblower reward");
+            return Ok(SubmitOutcome::CoWitnessAdded(id));
         }
 
         // Calculate slash with correlation
@@ -354,6 +495,13 @@ impl SlashingRegistryV2 {
             base_slash_wei:  slash_amount_wei(offender_stake, base_bps),
             final_slash_wei: slash_wei,
             appeal_deadline: current_block + APPEAL_WINDOW_BLOCKS,
+            // Co-witness list starts empty — `submitted_by` is the
+            // canonical "first reporter" and is added to the reward
+            // split implicitly at finalization time.
+            reporters: Vec::new(),
+            jailed_by_slash: false,
+            burn_applied:    false,
+            format_version:  SLASH_RECORD_FORMAT_VERSION,
         };
 
         self.pending_bonds.insert(id, (submitted_by, EVIDENCE_BOND_WEI));
@@ -367,7 +515,28 @@ impl SlashingRegistryV2 {
             "Slash evidence submitted"
         );
 
-        Ok(id)
+        Ok(SubmitOutcome::NewRecord(id))
+    }
+
+    /// Mutable accessor for the pipeline's `jailed_by_slash` write-back
+    /// after `apply_slash_burn` runs. Kept narrow on purpose — the
+    /// registry should not expose unrestricted record mutation.
+    /// Test-only accessor: mutable view into the raw records map.
+    /// Used by `pipeline::tests` to model forward-compat scenarios
+    /// (e.g. flipping a Confirmed record back to Appealed to exercise
+    /// the burn-was-applied refund branch). Not exposed to
+    /// production code — production status transitions must go
+    /// through `file_appeal` / `finalize_slash` / `overturn_slash` /
+    /// `reject_appeal` to keep the state-machine invariants intact.
+    #[cfg(test)]
+    pub fn records_mut(&mut self) -> &mut std::collections::HashMap<H256, SlashEvidenceRecord> {
+        &mut self.records
+    }
+
+    pub fn set_jailed_by_slash(&mut self, id: &H256, jailed: bool) {
+        if let Some(r) = self.records.get_mut(id) {
+            r.jailed_by_slash = jailed;
+        }
     }
 
     /// File an appeal against a slash record (by the offending validator).
@@ -391,13 +560,15 @@ impl SlashingRegistryV2 {
         Ok(())
     }
 
-    /// Finalize a pending slash after appeal window closes.
-    /// Returns (slash_amount_wei, whistleblower_reward_wei) if confirmed.
+    /// Outcome of `finalize_slash`: slash amount + a list of
+    /// `(reporter, reward_share_wei)` pairs split equally across all
+    /// co-witnesses (first reporter + every entry in `reporters`).
+    /// Returns `None` if the record is not yet finalizable.
     pub fn finalize_slash(
         &mut self,
         evidence_id: H256,
         current_block: u64,
-    ) -> Result<Option<(u128, Address, u128)>, StakingError> {
+    ) -> Result<Option<FinalizedSlash>, StakingError> {
         let record = self.records.get_mut(&evidence_id)
             .ok_or(StakingError::EvidenceNotFound)?;
 
@@ -409,22 +580,72 @@ impl SlashingRegistryV2 {
         }
 
         record.status = EvidenceStatus::Confirmed;
-        let slash     = record.final_slash_wei;
-        let submitter = record.submitted_by;
-        let reward    = slash * WHISTLEBLOWER_REWARD_BPS / 10_000;
+        // **Upgrade-boundary normalization** (architect-review #3):
+        //
+        // Stamp the current format version onto the record at the
+        // moment it enters the two-phase finalize flow. This handles
+        // the legacy-Pending-record-finalized-post-upgrade case: such
+        // a record deserialized with `format_version=0` (serde
+        // default), but as soon as `finalize_slash` runs on it the
+        // record is on the NEW persist-Confirmed-then-burn path and
+        // MUST be eligible for the crash-recovery replay loop if a
+        // crash happens between the Confirmed-persist and the burn.
+        // Without this stamp, such a record would be permanently
+        // excluded from replay (legacy-version filter) AND from
+        // re-finalization (already-Confirmed filter) — a permanent
+        // skipped burn.
+        record.format_version = SLASH_RECORD_FORMAT_VERSION;
+        // Also stamp burn_applied=false explicitly (it's already
+        // false by serde default for legacy records, but being
+        // explicit here documents the two-phase contract: persist
+        // this Confirmed-but-unapplied record → burn → re-persist
+        // with burn_applied=true.)
+        record.burn_applied = false;
+        let slash       = record.final_slash_wei;
+        let total_reward = slash * WHISTLEBLOWER_REWARD_BPS / 10_000;
+
+        // Build full reporter list: first reporter + co-witnesses,
+        // de-duplicated (defence-in-depth — `submit_evidence` already
+        // dedups, but on-disk legacy records may not have).
+        let mut all_reporters: Vec<Address> =
+            std::iter::once(record.submitted_by)
+                .chain(record.reporters.iter().copied())
+                .collect();
+        all_reporters.sort_unstable();
+        all_reporters.dedup();
+
+        // Equal split — integer division, remainder dropped (≤ N-1 wei,
+        // negligible at 18-decimal scale). Sort + dedup above means
+        // the split is deterministic across nodes.
+        let n = all_reporters.len() as u128;
+        let per_reporter = if n == 0 { 0 } else { total_reward / n };
+        let splits: Vec<(Address, u128)> = all_reporters
+            .into_iter()
+            .map(|r| (r, per_reporter))
+            .collect();
 
         info!(
             evidence_id = ?evidence_id,
             offender = ?record.offender,
             slash_wei = slash,
-            whistleblower_reward = reward,
+            total_reward_wei = total_reward,
+            per_reporter_wei = per_reporter,
+            reporters = splits.len(),
             "Slash confirmed after appeal window"
         );
 
-        Ok(Some((slash, submitter, reward)))
+        Ok(Some(FinalizedSlash {
+            slash_wei:    slash,
+            total_reward: total_reward,
+            splits,
+        }))
     }
 
-    /// Overturn a slash after a successful governance appeal.
+    /// Overturn an appealed slash. Caller is expected to refund the
+    /// returned `slash_wei` to the offender (and unjail if
+    /// `record.jailed_by_slash` is true). The registry only flips
+    /// the status — `SlashingPipeline::overturn_and_refund` wires
+    /// the actual ValidatorSet & bond ledger updates.
     pub fn overturn_slash(
         &mut self,
         evidence_id: H256,
@@ -433,13 +654,32 @@ impl SlashingRegistryV2 {
             .ok_or(StakingError::EvidenceNotFound)?;
 
         if record.status != EvidenceStatus::Appealed {
-            return Err(StakingError::AppealNotAllowed);
+            return Err(StakingError::OverturnNotAllowed);
         }
 
         let slash_to_return = record.final_slash_wei;
         record.status = EvidenceStatus::Overturned;
         warn!(evidence_id = ?evidence_id, "Slash overturned — stake to be returned");
         Ok(slash_to_return)
+    }
+
+    /// Reject an appealed slash that governance decided is legitimate.
+    /// Returns the slash amount which the caller MUST apply via the
+    /// validator-set burn (the registry only flips status).
+    pub fn reject_appeal(
+        &mut self,
+        evidence_id: H256,
+    ) -> Result<u128, StakingError> {
+        let record = self.records.get_mut(&evidence_id)
+            .ok_or(StakingError::EvidenceNotFound)?;
+        if record.status != EvidenceStatus::Appealed {
+            return Err(StakingError::OverturnNotAllowed);
+        }
+        record.status = EvidenceStatus::Confirmed;
+        let slash = record.final_slash_wei;
+        warn!(evidence_id = ?evidence_id,
+              "Appeal rejected — slash confirmed, appeal bond forfeit");
+        Ok(slash)
     }
 
     pub fn get_record(&self, id: &H256) -> Option<&SlashEvidenceRecord> {
@@ -450,6 +690,69 @@ impl SlashingRegistryV2 {
         self.records.values()
             .filter(|r| r.status == EvidenceStatus::Pending)
             .count()
+    }
+
+    /// Set the `burn_applied` marker on a Confirmed record. Called
+    /// by `SlashingPipeline::tick_finalize` AFTER a successful
+    /// validator-set burn + reward-credit pass, to close the
+    /// two-phase finalize cycle. Idempotent.
+    pub fn set_burn_applied(&mut self, id: &H256) {
+        if let Some(r) = self.records.get_mut(id) {
+            r.burn_applied = true;
+        }
+    }
+
+    /// Recompute the (reporter, reward_share_wei) splits for a
+    /// Confirmed record. Used by `tick_finalize`'s replay path so
+    /// a crash between status-flip and burn can be recovered
+    /// without re-running `finalize_slash` (which would refuse on a
+    /// non-Pending record). Splits are derived deterministically
+    /// from `(submitted_by, reporters, final_slash_wei)` — identical
+    /// arithmetic to `finalize_slash`'s split block so replay is
+    /// byte-equivalent to the original pass.
+    pub fn recompute_splits(record: &SlashEvidenceRecord) -> FinalizedSlash {
+        let slash        = record.final_slash_wei;
+        let total_reward = slash * WHISTLEBLOWER_REWARD_BPS / 10_000;
+        let mut all_reporters: Vec<Address> =
+            std::iter::once(record.submitted_by)
+                .chain(record.reporters.iter().copied())
+                .collect();
+        all_reporters.sort_unstable();
+        all_reporters.dedup();
+        let n = all_reporters.len() as u128;
+        let per_reporter = if n == 0 { 0 } else { total_reward / n };
+        let splits: Vec<(Address, u128)> = all_reporters
+            .into_iter()
+            .map(|r| (r, per_reporter))
+            .collect();
+        FinalizedSlash { slash_wei: slash, total_reward, splits }
+    }
+
+    /// Lifetime count of Confirmed slashes against `offender` —
+    /// powers the tombstone-on-repeat trigger in
+    /// `SlashingPipeline::tick_finalize`.
+    pub fn lifetime_confirmed_slashes(&self, offender: &Address) -> u64 {
+        self.records.values()
+            .filter(|r| r.status == EvidenceStatus::Confirmed && &r.offender == offender)
+            .count() as u64
+    }
+
+    /// File an appeal — programmatic accessor for the on-chain
+    /// `FileAppeal` transaction handler. Wraps the same checks but
+    /// returns the updated record so the caller can persist it.
+    pub fn file_appeal_for_tx(
+        &mut self,
+        evidence_id: H256,
+        sender: Address,
+        current_block: u64,
+    ) -> Result<SlashEvidenceRecord, StakingError> {
+        let record = self.records.get(&evidence_id)
+            .ok_or(StakingError::EvidenceNotFound)?;
+        if record.offender != sender {
+            return Err(StakingError::AppealNotByOffender);
+        }
+        self.file_appeal(evidence_id, current_block)?;
+        Ok(self.records.get(&evidence_id).cloned().unwrap())
     }
 
     /// SEC-2026-05-09 Pass-11 — bypass-validation insert used ONLY by
@@ -515,20 +818,58 @@ mod tests {
         let submitter = Address([2u8; 20]);
         let stake     = 100_000 * 10u128.pow(18);
 
-        let id = reg.submit_evidence(
+        let outcome = reg.submit_evidence(
             make_double_sign(offender),
             submitter, 1, 0, stake,
         ).unwrap();
+        assert!(matches!(outcome, SubmitOutcome::NewRecord(_)));
+        let id = outcome.record_id();
 
         // Cannot finalize during appeal window
         assert!(reg.finalize_slash(id, 100).unwrap().is_none());
 
         // Finalize after window
         let result = reg.finalize_slash(id, APPEAL_WINDOW_BLOCKS + 10).unwrap();
-        assert!(result.is_some());
-        let (slash, _, reward) = result.unwrap();
-        assert!(slash > 0);
-        assert_eq!(reward, slash * 500 / 10_000);
+        let f = result.expect("finalize must produce a result past the window");
+        assert!(f.slash_wei > 0);
+        assert_eq!(f.total_reward, f.slash_wei * 500 / 10_000);
+        assert_eq!(f.splits.len(), 1, "single-reporter slash → one split entry");
+        assert_eq!(f.splits[0].0, submitter);
+        assert_eq!(f.splits[0].1, f.total_reward);
+    }
+
+    #[test]
+    fn co_witness_second_reporter_shares_reward() {
+        let mut reg = SlashingRegistryV2::new(100);
+        let offender   = Address([1u8; 20]);
+        let reporter_a = Address([2u8; 20]);
+        let reporter_b = Address([3u8; 20]);
+        let stake      = 100_000 * 10u128.pow(18);
+
+        let a = reg.submit_evidence(make_double_sign(offender), reporter_a, 1, 0, stake).unwrap();
+        assert!(matches!(a, SubmitOutcome::NewRecord(_)));
+        let id = a.record_id();
+
+        // Second honest reporter of the SAME equivocation — pre-upgrade
+        // this returned DuplicateEvidence and they got no reward.
+        let b = reg.submit_evidence(make_double_sign(offender), reporter_b, 1, 0, stake).unwrap();
+        assert_eq!(b, SubmitOutcome::CoWitnessAdded(id),
+            "second honest reporter must be added as co-witness");
+
+        // Same reporter re-submitting → AlreadyRecorded, not a third entry.
+        let dup = reg.submit_evidence(make_double_sign(offender), reporter_a, 1, 0, stake).unwrap();
+        assert_eq!(dup, SubmitOutcome::AlreadyRecorded(id));
+
+        let f = reg.finalize_slash(id, APPEAL_WINDOW_BLOCKS + 10).unwrap().unwrap();
+        assert_eq!(f.splits.len(), 2, "two reporters → two equal splits");
+        let split_sum: u128 = f.splits.iter().map(|(_, w)| *w).sum();
+        // Integer-division remainder ≤ 1 wei may be dropped.
+        assert!(f.total_reward - split_sum <= 1,
+            "splits must cover total reward modulo integer rounding");
+        // Both reporters present in splits.
+        let addrs: Vec<Address> = f.splits.iter().map(|(a, _)| *a).collect();
+        assert!(addrs.contains(&reporter_a));
+        assert!(addrs.contains(&reporter_b));
     }
 
     #[test]

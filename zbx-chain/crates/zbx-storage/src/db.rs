@@ -631,6 +631,104 @@ impl ZbxDb {
         Ok(out)
     }
 
+    // -----------------------------------------------------------------------
+    // Slashing bond ledger (full-slashing-upgrade).
+    //
+    // Persists whistleblower deposits AND appeal bonds keyed by
+    // `record_id (32) || reporter_addr (20)` = 52 bytes. fsynced for the
+    // same loss-of-equivocation reason as `put_slashing_evidence`.
+    // Iteration uses a 32-byte prefix scan on `record_id` so a single
+    // finalize / overturn pass can collect every bond attached to one
+    // slash without scanning the whole CF.
+    // -----------------------------------------------------------------------
+
+    /// Compose a bond key: `record_id (32) || reporter (20)` = 52 bytes.
+    /// Exposed for callers that need to test a single (record, reporter)
+    /// pair without iterating.
+    pub fn slashing_bond_key(record_id: &[u8; 32], reporter: &Address) -> [u8; 52] {
+        let mut k = [0u8; 52];
+        k[..32].copy_from_slice(record_id);
+        k[32..].copy_from_slice(reporter.as_bytes());
+        k
+    }
+
+    pub fn put_slashing_bond(
+        &self,
+        record_id: &[u8; 32],
+        reporter: &Address,
+        bytes: Vec<u8>,
+    ) -> Result<(), StorageError> {
+        let key = Self::slashing_bond_key(record_id, reporter);
+        let mut batch = WriteBatch::new();
+        batch.put(Column::SlashingBonds, key.to_vec(), bytes);
+        self.write_synced(batch)
+    }
+
+    pub fn get_slashing_bond(
+        &self,
+        record_id: &[u8; 32],
+        reporter: &Address,
+    ) -> Result<Option<Vec<u8>>, StorageError> {
+        let key = Self::slashing_bond_key(record_id, reporter);
+        self.get_raw(Column::SlashingBonds, &key)
+    }
+
+    pub fn delete_slashing_bond(
+        &self,
+        record_id: &[u8; 32],
+        reporter: &Address,
+    ) -> Result<(), StorageError> {
+        let key = Self::slashing_bond_key(record_id, reporter);
+        let mut batch = WriteBatch::new();
+        batch.delete(Column::SlashingBonds, key.to_vec());
+        self.write_synced(batch)
+    }
+
+    /// Enumerate every bond attached to one slash record via a 32-byte
+    /// prefix scan on `record_id`. Returns `(reporter, bond_bytes)`
+    /// pairs in lexicographic reporter order.
+    pub fn iter_slashing_bonds_for_record(
+        &self,
+        record_id: &[u8; 32],
+    ) -> Result<Vec<(Address, Vec<u8>)>, StorageError> {
+        let cf = self.cf(Column::SlashingBonds)?;
+        let mut out = Vec::new();
+        let mode = rocksdb::IteratorMode::From(record_id, rocksdb::Direction::Forward);
+        let iter = self.db.iterator_cf(&cf, mode);
+        for item in iter {
+            let (k, v) = item.map_err(|e| StorageError::Db(format!("iter bonds: {e}")))?;
+            // Stop as soon as we leave the record_id prefix.
+            if k.len() != 52 || &k[..32] != &record_id[..] {
+                break;
+            }
+            let mut addr = [0u8; 20];
+            addr.copy_from_slice(&k[32..]);
+            out.push((Address(addr), v.into_vec()));
+        }
+        Ok(out)
+    }
+
+    /// Iterate every persisted slashing bond across all records.
+    /// Used at startup to rehydrate the in-memory bond state on the
+    /// pipeline restart path (and by ops tooling).
+    pub fn iter_all_slashing_bonds(
+        &self,
+    ) -> Result<Vec<([u8; 32], Address, Vec<u8>)>, StorageError> {
+        let cf = self.cf(Column::SlashingBonds)?;
+        let mut out = Vec::new();
+        let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start);
+        for item in iter {
+            let (k, v) = item.map_err(|e| StorageError::Db(format!("iter bonds: {e}")))?;
+            if k.len() != 52 { continue; }
+            let mut rid = [0u8; 32];
+            rid.copy_from_slice(&k[..32]);
+            let mut addr = [0u8; 20];
+            addr.copy_from_slice(&k[32..]);
+            out.push((rid, Address(addr), v.into_vec()));
+        }
+        Ok(out)
+    }
+
     // Staking-pipeline persistence: Delegations CF (per-delegator stake
     // ledger) and Unbonding CF (21-day maturity queue). All writes go
     // through write_synced to avoid lost-delegation-on-crash.

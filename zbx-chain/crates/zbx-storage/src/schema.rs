@@ -72,6 +72,28 @@ pub enum Column {
     /// Key   = epoch_be(8)
     /// Value = bincode(ValidatorSet)
     ValidatorSets,
+    /// Slashing whistleblower / appeal bond ledger.
+    ///
+    /// Pre-upgrade the `SlashingRegistryV2.pending_bonds` map was in
+    /// process memory only — a crash between bond admission and slash
+    /// finalization lost the deposit, so non-validator whistleblowers
+    /// effectively forfeited their 100 ZBX even though the registry
+    /// counted them as still-bonded. Appeal bonds had no escrow at
+    /// all (operator-only appeal flow).
+    ///
+    /// This CF persists every active bond keyed by
+    /// `record_id (32) ‖ reporter_address (20)` so a single record
+    /// can carry one appeal bond (from the offender) AND N
+    /// whistleblower bonds (one per co-witness reporter). Iteration
+    /// uses a 32-byte prefix scan on `record_id` to enumerate all
+    /// bonds tied to a given slash.
+    ///
+    /// Key   = record_id(32) ‖ reporter(20)   = 52 bytes
+    /// Value = bincode(BondEntry { wei: u128, kind: BondKind })
+    ///
+    /// Writes are fsynced — losing a bond mid-window is silently the
+    /// same as losing the slashing evidence itself.
+    SlashingBonds,
     /// Cross-chain bridge: replay-protection spent-operations log.
     ///
     /// Each entry records a `msg_hash` (the keccak256 content-hash of a bridge
@@ -105,6 +127,7 @@ impl Column {
             Column::TrieNodes        => "trie_nodes",
             Column::SlashingEvidence => "slashing_evidence",
             Column::SlashingRecords  => "slashing_records",
+            Column::SlashingBonds    => "slashing_bonds",
             Column::Delegations      => "delegations",
             Column::Unbonding        => "unbonding",
             Column::ValidatorSets    => "validator_sets",
@@ -125,6 +148,7 @@ impl Column {
             Column::TrieNodes,
             Column::SlashingEvidence,
             Column::SlashingRecords,
+            Column::SlashingBonds,
             Column::Delegations,
             Column::Unbonding,
             Column::ValidatorSets,

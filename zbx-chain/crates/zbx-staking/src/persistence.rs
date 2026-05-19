@@ -32,14 +32,42 @@
 //!   coupling to `StateDB::transfer_balance` which is a separate
 //!   audit. Documented gap.
 
-use crate::slashing_v2::{SlashEvidenceRecord, SlashEvidenceV2, EvidenceStatus};
+use crate::slashing_v2::{SlashEvidenceRecord, SlashEvidenceV2, EvidenceStatus, SLASH_RECORD_FORMAT_VERSION};
 use crate::error::StakingError;
 use zbx_consensus::vote::EquivocationEvidence;
 use zbx_storage::ZbxDb;
-use zbx_types::H256;
+use zbx_types::{address::Address, H256};
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::sync::Arc;
 use tracing::{debug, error, warn};
+
+// ── Bond ledger types (Slashing-upgrade) ─────────────────────────────────
+
+/// Distinguishes the purpose of a slashing-bond ledger entry. Carried
+/// as part of `BondEntry` so a single `(record_id, reporter)` row can
+/// be classified without re-reading the record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BondKind {
+    /// Whistleblower deposit posted by an evidence submitter. Pre-
+    /// upgrade these lived in `SlashingRegistryV2.pending_bonds` and
+    /// vanished on restart. The on-chain consensus auto-detection
+    /// path currently records 0-wei whistleblower bonds (the chain's
+    /// own consensus is the "submitter" — no spam-deposit needed);
+    /// non-zero entries come from future operator-submitted evidence
+    /// transactions.
+    Whistleblower,
+    /// Appeal bond posted by the slashed validator on `FileAppeal`.
+    /// Refunded on successful overturn, forfeited on rejection.
+    Appeal,
+}
+
+/// On-disk bond record. Value half of `SlashingBonds` CF.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BondEntry {
+    pub wei: u128,
+    pub kind: BondKind,
+}
 
 /// Compute the canonical 32-byte ID for an `EquivocationEvidence`.
 ///
@@ -221,6 +249,110 @@ impl EvidenceStore {
                     && current_block > r.appeal_deadline
             })
             .collect())
+    }
+
+    /// **Slashing-upgrade — crash-consistency replay filter.**
+    /// Returns Confirmed records whose burn has not yet been
+    /// applied (two-phase finalize). The pipeline replays the
+    /// validator-set burn on each of these on startup / next tick
+    /// so a crash between `finalize_slash` (status flip) and
+    /// `apply_slash_burn_v2` cannot leave a record permanently
+    /// Confirmed without its burn ever taking effect.
+    ///
+    /// Backward-compat note: legacy pre-upgrade Confirmed records
+    /// deserialize with `burn_applied = false` (serde default). Those
+    /// records have ALREADY had their burn applied by the legacy
+    /// burn-then-persist path; the pipeline's replay loop checks
+    /// the validator's current state (jailed/tombstoned + already
+    /// reduced stake) to avoid double-burning. See
+    /// `SlashingPipeline::tick_finalize` for the full guard.
+    pub fn load_records_with_unapplied_burn(
+        &self,
+    ) -> Result<Vec<SlashEvidenceRecord>, StakingError> {
+        Ok(self.load_all_records()?
+            .into_iter()
+            .filter(|r| {
+                // Strict triple-gate: must be a NEW upgraded record
+                // (format_version >= 1), Confirmed, and explicitly
+                // not-yet-burned. Pre-upgrade records carry
+                // format_version=0 (serde default) and are excluded
+                // by construction even though they too have
+                // burn_applied=false on disk.
+                r.format_version >= SLASH_RECORD_FORMAT_VERSION
+                    && r.status == EvidenceStatus::Confirmed
+                    && !r.burn_applied
+            })
+            .collect())
+    }
+
+    // ── Bond ledger (Slashing-upgrade) ──────────────────────────────────────
+
+    /// Persist a bond. Idempotent on `(record_id, reporter)`: writing
+    /// the same key with a new value overwrites (used by appeal-bond
+    /// post-overturn refund accounting).
+    pub fn put_bond(
+        &self,
+        record_id: &H256,
+        reporter:  &Address,
+        bond:      &BondEntry,
+    ) -> Result<(), StakingError> {
+        let bytes = bincode::serialize(bond)
+            .map_err(|e| StakingError::Persistence(format!("bond encode: {e}")))?;
+        self.db.put_slashing_bond(&record_id.0, reporter, bytes)
+            .map_err(|e| StakingError::Persistence(format!("bond put: {e}")))?;
+        debug!(record_id = ?record_id, reporter = ?reporter,
+               wei = bond.wei, kind = ?bond.kind, "bond persisted");
+        Ok(())
+    }
+
+    pub fn get_bond(
+        &self,
+        record_id: &H256,
+        reporter:  &Address,
+    ) -> Result<Option<BondEntry>, StakingError> {
+        let bytes = self.db.get_slashing_bond(&record_id.0, reporter)
+            .map_err(|e| StakingError::Persistence(format!("bond get: {e}")))?;
+        match bytes {
+            None => Ok(None),
+            Some(b) => bincode::deserialize::<BondEntry>(&b)
+                .map(Some)
+                .map_err(|e| StakingError::Persistence(
+                    format!("bond decode (corrupt — id={record_id:?}, reporter={reporter:?}): {e}"))),
+        }
+    }
+
+    pub fn delete_bond(
+        &self,
+        record_id: &H256,
+        reporter:  &Address,
+    ) -> Result<(), StakingError> {
+        self.db.delete_slashing_bond(&record_id.0, reporter)
+            .map_err(|e| StakingError::Persistence(format!("bond delete: {e}")))
+    }
+
+    /// All bonds attached to a single slash record (prefix scan on
+    /// `record_id`). Used at finalize / overturn time to enumerate
+    /// whistleblower + appeal bonds for a given slash.
+    pub fn list_bonds_for_record(
+        &self,
+        record_id: &H256,
+    ) -> Result<Vec<(Address, BondEntry)>, StakingError> {
+        let raw = self.db.iter_slashing_bonds_for_record(&record_id.0)
+            .map_err(|e| StakingError::Persistence(format!("bond list: {e}")))?;
+        let mut out = Vec::with_capacity(raw.len());
+        for (reporter, blob) in raw {
+            // FAIL-CLOSED on corruption (same rationale as records).
+            let entry = bincode::deserialize::<BondEntry>(&blob)
+                .map_err(|e| {
+                    error!(record_id = ?record_id, reporter = ?reporter, error = %e,
+                           "FATAL: corrupt bond entry on disk");
+                    StakingError::Persistence(format!(
+                        "corrupt bond record_id={record_id:?} reporter={reporter:?}: {e}"
+                    ))
+                })?;
+            out.push((reporter, entry));
+        }
+        Ok(out)
     }
 }
 
