@@ -117,6 +117,23 @@ impl Pacemaker {
         self.current = RoundState::new(new_round, epoch, self.config.base_timeout);
     }
 
+    /// Whether the current round's deadline has elapsed. Thin
+    /// delegate to `RoundState::is_timed_out` so callers can poll
+    /// without reaching into `current_state()` themselves.
+    pub fn is_timed_out(&self) -> bool {
+        self.current.is_timed_out()
+    }
+
+    /// Start a fresh round at `(round, epoch)`, resetting the timer
+    /// to `config.base_timeout`. Unlike `advance_round` this does NOT
+    /// require `round > current.round` — callers (e.g. the
+    /// `HotStuff2Pacemaker` view-change path) gate that check
+    /// themselves and want an unconditional restart.
+    pub fn start_round(&mut self, round: u64, epoch: u64) {
+        info!(round, epoch, "pacemaker: starting round");
+        self.current = RoundState::new(round, epoch, self.config.base_timeout);
+    }
+
     /// Handle a round timeout: increase backoff and emit timeout vote.
     ///
     /// N-06 fix: timeout is computed using integer-only arithmetic

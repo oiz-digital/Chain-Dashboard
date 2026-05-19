@@ -69,4 +69,17 @@ pub enum ConsensusError {
     // it impossible to detect a malformed or replayed QC in audit logs.
     #[error("invalid consensus message: {0}")]
     InvalidMessage(String),
+
+    // ── Gossip rate-limiting (raised by `GossipFilter::on_inbound`) ─────────
+    /// A peer exceeded its per-second gossip rate budget. The caller
+    /// should drop the message and may penalise the peer.
+    #[error("gossip rate limit exceeded")]
+    RateLimitExceeded,
+
+    // ── Pacemaker / epoch mismatch (raised by `on_timeout_share`) ──────────
+    /// A remote timeout-share carried an epoch that does not match the
+    /// local pacemaker's current epoch — silently dropping it would
+    /// mask cross-epoch replay attempts, so we surface it explicitly.
+    #[error("invalid epoch: expected {expected}, got {got}")]
+    InvalidEpoch { expected: u64, got: u64 },
 }
