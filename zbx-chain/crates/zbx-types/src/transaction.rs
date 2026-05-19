@@ -52,7 +52,7 @@ fn rlp_access_list(access_list: &[(Address, Vec<H256>)]) -> Vec<u8> {
     let mut outer = RlpStream::new_list(access_list.len());
     for (addr, slots) in access_list {
         let mut entry = RlpStream::new_list(2);
-        entry.append(&addr.as_bytes());
+        entry.append(&(addr.as_bytes() as &[u8]));
         let mut slot_list = RlpStream::new_list(slots.len());
         for slot in slots {
             slot_list.append(&slot.as_bytes());
@@ -123,7 +123,7 @@ impl Transaction {
                 s.append(&self.max_fee_per_gas); // gasPrice (legacy has single fee)
                 s.append(&self.gas_limit);
                 match &self.to {
-                    Some(to) => s.append(&to.as_bytes()),
+                    Some(to) => s.append(&(to.as_bytes() as &[u8])),
                     None => s.append_empty_data(), // CREATE: empty byte string
                 };
                 s.append(&value_bytes.as_slice());
@@ -144,7 +144,7 @@ impl Transaction {
                 s.append(&self.max_fee_per_gas); // gasPrice
                 s.append(&self.gas_limit);
                 match &self.to {
-                    Some(to) => s.append(&to.as_bytes()),
+                    Some(to) => s.append(&(to.as_bytes() as &[u8])),
                     None => s.append_empty_data(),
                 };
                 s.append(&value_bytes.as_slice());
@@ -166,7 +166,7 @@ impl Transaction {
                 s.append(&self.max_fee_per_gas);
                 s.append(&self.gas_limit);
                 match &self.to {
-                    Some(to) => s.append(&to.as_bytes()),
+                    Some(to) => s.append(&(to.as_bytes() as &[u8])),
                     None => s.append_empty_data(),
                 };
                 s.append(&value_bytes.as_slice());
@@ -285,7 +285,7 @@ impl SignedTransaction {
                 rlp.append(&tx.max_fee_per_gas); // gasPrice
                 rlp.append(&tx.gas_limit);
                 match &tx.to {
-                    Some(to) => rlp.append(&to.as_bytes()),
+                    Some(to) => rlp.append(&(to.as_bytes() as &[u8])),
                     None => rlp.append_empty_data(),
                 };
                 rlp.append(&value_bytes.as_slice());
@@ -307,7 +307,7 @@ impl SignedTransaction {
                 rlp.append(&tx.max_fee_per_gas); // gasPrice
                 rlp.append(&tx.gas_limit);
                 match &tx.to {
-                    Some(to) => rlp.append(&to.as_bytes()),
+                    Some(to) => rlp.append(&(to.as_bytes() as &[u8])),
                     None => rlp.append_empty_data(),
                 };
                 rlp.append(&value_bytes.as_slice());
@@ -333,7 +333,7 @@ impl SignedTransaction {
                 rlp.append(&tx.max_fee_per_gas);
                 rlp.append(&tx.gas_limit);
                 match &tx.to {
-                    Some(to) => rlp.append(&to.as_bytes()),
+                    Some(to) => rlp.append(&(to.as_bytes() as &[u8])),
                     None => rlp.append_empty_data(),
                 };
                 rlp.append(&value_bytes.as_slice());

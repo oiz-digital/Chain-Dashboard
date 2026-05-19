@@ -7364,6 +7364,7 @@ name = "zbx-bridge"
 version = "0.2.0"
 dependencies = [
  "hex",
+ "parking_lot 0.12.5",
  "serde",
  "serde_json",
  "sha3",
@@ -7371,6 +7372,7 @@ dependencies = [
  "tokio",
  "tracing",
  "zbx-crypto",
+ "zbx-storage",
  "zbx-types",
 ]
 
@@ -7727,6 +7729,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "zbx-crypto",
+ "zbx-tx",
  "zbx-types",
  "zeroize",
 ]
@@ -7988,6 +7991,17 @@ dependencies = [
  "zbx-evm",
  "zbx-oracle",
  "zbx-storage",
+ "zbx-types",
+]
+
+[[package]]
+name = "zbx-perp"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+ "zbx-oracle",
  "zbx-types",
 ]
 
