@@ -34,7 +34,27 @@ pub struct GenesisSpec {
     pub token_premints: Vec<TokenPremint>,
 }
 
-/// Fork activation configuration.
+/// EVM-dialect pin selectors, frozen at genesis.
+///
+/// ⚠️ NO-HARD-FORK POLICY (read this before touching ChainConfig):
+///
+/// These fields are NOT a hard-fork schedule. They are immutable
+/// EVM-compatibility selectors baked into the genesis block — they
+/// pin which EIPs are recognised on this chain from block 0. Once
+/// the network is launched they cannot be changed by anyone:
+///   * No operator CLI mutates them.
+///   * No node TOML override re-loads them post-launch.
+///   * No admin / governance proposal can re-target them — the
+///     genesis block hash commits to this struct.
+///
+/// New post-launch protocol features MUST flow through the on-chain
+/// `VersionRegistry` (via `UpgradeProposal` → ZEP vote →
+/// `ProposalRegistry::ready_to_execute` → STF applies it). There is
+/// no other sanctioned upgrade pathway on this chain.
+///
+/// Adding a new field here (e.g. a future EIP block selector) is a
+/// GENESIS-ONLY change: it affects future chain launches, not the
+/// running mainnet/testnet. Do not introduce mutator methods.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainConfig {
     pub chain_id:               u64,

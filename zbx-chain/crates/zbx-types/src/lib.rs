@@ -14,7 +14,36 @@ pub mod events;
 pub mod execution;
 pub mod feature_flags;
 pub mod finality;
-pub mod hardfork;
+// ── hardfork module REMOVED (Policy: live-chain-only upgrades) ──
+//
+// The `hardfork` module (a `HardFork` enum + `HardForkSchedule` keyed
+// by block height, loadable from node TOML) has been deleted as part
+// of the no-hard-fork governance lock-down. RATIONALE:
+//
+//   * Any operator-side or genesis-side hard-fork schedule is a
+//     trust surface: a node operator (or a malicious genesis config)
+//     could swap consensus rules without on-chain approval.
+//   * The ONLY sanctioned upgrade pathway on this chain is the
+//     `VersionRegistry` mutated through `ProposalRegistry` /
+//     `UpgradeProposal` execution — i.e. an on-chain ZEP that
+//     passed quorum + threshold voting and reached its scheduled
+//     activation height inside the state-transition function.
+//   * Per-EVM-era selectors (`london_block` / `shanghai_block` /
+//     `cancun_block` in `zbx-genesis::ChainConfig`) remain ONLY as
+//     genesis-immutable EVM-dialect pins — they CANNOT be mutated
+//     post-launch by any party. They are not hard-forks; they are
+//     genesis-time EVM-compatibility selectors.
+//
+// To add a new protocol feature post-launch:
+//   1. File a ZEP (`UpgradeProposal`) with a `RegistryUpgrade` payload.
+//   2. Reach quorum (1M ZBX) + approval threshold via on-chain voting.
+//   3. `ProposalRegistry::ready_to_execute` surfaces it at the
+//      activation height; the STF applies it via
+//      `VersionRegistry::apply` — atomically updating
+//      `ModuleVersions` + `ActivationSchedule` + `FeatureFlags` +
+//      `StorageVersion` in the world state.
+//
+// See: `version_registry.rs`, `activation.rs`, `governance.rs`.
 pub mod governance;
 pub mod mempool;
 pub mod module_version;
